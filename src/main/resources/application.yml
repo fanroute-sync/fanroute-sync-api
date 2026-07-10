@@ -1,0 +1,12 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: fanroute-sync-api
+  profiles:
+    default: local
+  servlet:
+    multipart:
+      max-file-size: 10MB # 파일 업로드 요청 시, 하나의 파일 크기를 10MB로 제한
+      max-request-size: 100MB # 파일 업로드 요청 시, 모든 파일의 크기 합을 100MB로 제한
