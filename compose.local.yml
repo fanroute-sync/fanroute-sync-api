@@ -1,0 +1,70 @@
+services:
+  #  Postgre SQL 설정
+  postgres:
+    image: postgres:17-alpine
+    container_name: fanroute-postgres-local
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    volumes:
+      - postgres-local-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    restart: unless-stopped
+
+  #  Redis SQL 설정
+  redis:
+    image: redis:8-alpine
+    container_name: fanroute-redis-local
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+
+    ports:
+      - "${REDIS_PORT}:6379"
+
+    volumes:
+      - redis-local-data:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${REDIS_PASSWORD}",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+    restart: unless-stopped
+
+volumes:
+  postgres-local-data:
+    name: fanroute-postgres-local-data
+
+  redis-local-data:
+    name: fanroute-redis-local-data
