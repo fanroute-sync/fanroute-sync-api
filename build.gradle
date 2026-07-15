@@ -17,6 +17,10 @@ repositories {
 	mavenCentral()
 }
 
+configurations {
+    mockitoAgent
+}
+
 dependencies {
     // =========================
     // Spring MVC
@@ -60,8 +64,16 @@ dependencies {
     // Test
     // =========================
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    testImplementation 'org.mockito:mockito-core'
+    mockitoAgent('org.mockito:mockito-core') {
+        transitive = false
+    }
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+    jvmArgs(
+            "-javaagent:${configurations.mockitoAgent.singleFile.absolutePath}"
+    )
 }
