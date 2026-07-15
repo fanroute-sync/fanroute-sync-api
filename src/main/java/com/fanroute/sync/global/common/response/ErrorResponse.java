@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -20,19 +21,19 @@ public record ErrorResponse(
 
     // Validation 응답
     public static ErrorResponse of(BindingResult bindingResult) {
-        List<ValidationError> errors = bindingResult.getFieldErrors().stream()
+        List<ValidationError> errors = bindingResult.getAllErrors().stream()
                 .map(ValidationError::of)
                 .toList();
         return new ErrorResponse("입력값 검증에 실패하였습니다.", errors);
     }
 
     // 필드별 상세 에러 정보를 담는 내부 레코드
-    public record ValidationError(String field, Object rejectedValue, String reason) {
-        public static ValidationError of(FieldError fieldError) {
-            return new ValidationError(
-                    fieldError.getField(),
-                    fieldError.getRejectedValue(),
-                    fieldError.getDefaultMessage());
+    public record ValidationError(String field, String reason) {
+        public static ValidationError of(ObjectError error) {
+            String field = error instanceof FieldError fieldError
+                    ? fieldError.getField()
+                    : null;
+            return new ValidationError(field, error.getDefaultMessage());
         }
     }
 }

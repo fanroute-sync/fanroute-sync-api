@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -13,7 +14,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.response.ErrorCode;
@@ -28,7 +32,9 @@ class GlobalExceptionHandlerTest {
   void handleValidation_ShouldReturnFieldErrorsAndStatus400() {
     // Given: 'request' 객체의 'name' 필드에 "이름은 필수입니다" 에러 가상 바인딩
     BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "request");
-    bindingResult.addError(new FieldError("request", "name", "", false, null, null, "이름은 필수입니다."));
+    bindingResult.addError(new FieldError(
+        "request", "name", "sensitive-value", false, null, null, "이름은 필수입니다."));
+    bindingResult.addError(new ObjectError("request", "요청값 조합이 올바르지 않습니다."));
 
     MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
     when(exception.getBindingResult()).thenReturn(bindingResult);
@@ -43,9 +49,45 @@ class GlobalExceptionHandlerTest {
         () -> assertNotNull(body),
         () -> assertFalse(body.success()), // success: false 검증
         () -> assertEquals(ErrorCode.INVALID_PARAMETER.getCode(), body.code()),
-        () -> assertEquals(1, body.data().errors().size()),
-        () -> assertEquals("name", body.data().errors().get(0).field()),
-        () -> assertEquals("이름은 필수입니다.", body.data().errors().get(0).reason())
+        () -> assertEquals(2, body.data().errors().size()),
+        () -> assertEquals("name", body.data().errors().getFirst().field()),
+        () -> assertEquals("이름은 필수입니다.", body.data().errors().getFirst().reason()),
+        () -> assertNull(body.data().errors().get(1).field()),
+        () -> assertEquals("요청값 조합이 올바르지 않습니다.", body.data().errors().get(1).reason())
+    );
+  }
+
+  @Test
+  @DisplayName("지원하지 않는 HTTP 메서드는 405 응답을 반환한다")
+  void handleMethodNotAllowed_ShouldReturnStatus405() {
+    HttpRequestMethodNotSupportedException exception =
+        new HttpRequestMethodNotSupportedException("PATCH");
+
+    ResponseEntity<ApiResponse<Void>> entity = handler.handleMethodNotAllowed(exception);
+    ApiResponse<Void> body = entity.getBody();
+
+    assertAll(
+        () -> assertEquals(HttpStatus.METHOD_NOT_ALLOWED, entity.getStatusCode()),
+        () -> assertNotNull(body),
+        () -> assertFalse(body.success()),
+        () -> assertEquals(ErrorCode.METHOD_NOT_ALLOWED.getCode(), body.code())
+    );
+  }
+
+  @Test
+  @DisplayName("존재하지 않는 리소스 요청은 404 응답을 반환한다")
+  void handleResourceNotFound_ShouldReturnStatus404() {
+    NoResourceFoundException exception = mock(NoResourceFoundException.class);
+
+    ResponseEntity<ApiResponse<Void>> entity = handler.handleResourceNotFound(exception);
+    ApiResponse<Void> body = entity.getBody();
+
+    assertAll(
+        () -> assertEquals(HttpStatus.NOT_FOUND, entity.getStatusCode()),
+        () -> assertNotNull(body),
+        () -> assertFalse(body.success()),
+        () -> assertEquals(ErrorCode.RESOURCE_NOT_FOUND.getCode(), body.code()),
+        () -> assertEquals(ErrorCode.RESOURCE_NOT_FOUND.getMessage(), body.message())
     );
   }
 

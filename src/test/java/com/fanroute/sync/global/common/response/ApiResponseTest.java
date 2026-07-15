@@ -15,6 +15,7 @@ class ApiResponseTest {
 
     assertThat(response.success()).isTrue();
     assertThat(response.status()).isEqualTo(200);
+    assertThat(response.code()).isEqualTo("OK");
     assertThat(response.message())
         .isEqualTo("요청이 성공적으로 처리되었습니다.");
     assertThat(response.data()).isEqualTo("data");

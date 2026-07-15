@@ -24,7 +24,12 @@ public record ApiResponse<T>(
 
     // 직접 처리할 수 있는 성공 응답
     public static <T> ApiResponse<T> of(BaseCode status, T data) {
-        return new ApiResponse<>(true, status.getHttpStatus().value(), null, status.getMessage(), data);
+        return new ApiResponse<>(
+                true,
+                status.getHttpStatus().value(),
+                status.getCode(),
+                status.getMessage(),
+                data);
     }
 
     public static <T> ApiResponse<T> fail(HttpStatus status, String message) {
