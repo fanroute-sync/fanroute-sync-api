@@ -29,6 +29,9 @@ import com.fanroute.sync.global.external.ExternalApiException;
 import com.fanroute.sync.global.external.ExternalApiLoggingInterceptor;
 import com.fanroute.sync.global.external.ExternalApiTransportExceptionMapper;
 
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+
 class ExternalApiClientConfigTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
@@ -50,6 +53,18 @@ class ExternalApiClientConfigTest {
                     .getRequiredService("test").getBaseUrl())
                     .isEqualTo(URI.create("https://example.com"));
         });
+    }
+
+    @Test
+    @DisplayName("외부 API Base URL이 없으면 프로퍼티 검증에 실패한다")
+    void rejectsMissingServiceBaseUrl() {
+        ExternalApiProperties properties = new ExternalApiProperties();
+        properties.getServices().put("test", new ExternalApiProperties.Service());
+
+        try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
+            assertThat(validatorFactory.getValidator().validate(properties))
+                    .anyMatch(violation -> violation.getPropertyPath().toString().endsWith("baseUrl"));
+        }
     }
 
     @Test
