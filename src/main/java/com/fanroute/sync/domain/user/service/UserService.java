@@ -25,7 +25,9 @@ public class UserService {
   private final UserRepository userRepository;
   private final NicknameGenerator nicknameGenerator;
 
-  /** 신규 사용자를 생성합니다. */
+  /**
+   * 신규 사용자를 생성합니다.
+   */
   @Transactional
   public User createUser(AuthProvider authProvider, String providerUserId) {
     validateSocialAccountNotDuplicated(authProvider, providerUserId);
@@ -58,6 +60,24 @@ public class UserService {
         .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     validateAccessible(user);
     return user;
+  }
+
+  /**
+   * 소셜 계정으로 로그인할 사용자를 조회하고, 최초 로그인이라면 새로 생성합니다.
+   */
+  @Transactional
+  public SocialLoginResult findOrCreateSocialUser(
+      AuthProvider authProvider, String providerUserId) {
+    return userRepository.findByAuthProviderAndProviderUserId(authProvider, providerUserId)
+        .map(user -> {
+          validateAccessible(user);
+          return new SocialLoginResult(user, false);
+        })
+        .orElseGet(() -> new SocialLoginResult(createUser(authProvider, providerUserId), true));
+  }
+
+  public record SocialLoginResult(User user, boolean newUser) {
+
   }
 
   /**
@@ -99,19 +119,25 @@ public class UserService {
     return user;
   }
 
-  /** 사용자를 일시 정지 상태로 변경합니다. */
+  /**
+   * 사용자를 일시 정지 상태로 변경합니다.
+   */
   @Transactional
   public void suspendUser(Long userId) {
     findUser(userId).suspend();
   }
 
-  /** 정지된 사용자를 활성 상태로 변경합니다. */
+  /**
+   * 정지된 사용자를 활성 상태로 변경합니다.
+   */
   @Transactional
   public void activateUser(Long userId) {
     findUser(userId).activate();
   }
 
-  /** 사용자를 탈퇴 처리합니다. */
+  /**
+   * 사용자를 탈퇴 처리합니다.
+   */
   @Transactional
   public void withdrawUser(Long userId) {
     findUser(userId).withdraw(Instant.now());
@@ -132,7 +158,8 @@ public class UserService {
    * @param providerUserId 소셜 제공자가 발급한 고유 사용자 ID
    * @throws BusinessException 이미 가입된 소셜 계정이거나 고유한 닉네임 생성에 실패한 경우
    */
-  private void validateSocialAccountNotDuplicated(AuthProvider authProvider, String providerUserId) {
+  private void validateSocialAccountNotDuplicated(AuthProvider authProvider,
+      String providerUserId) {
     if (userRepository.existsByAuthProviderAndProviderUserId(authProvider, providerUserId)) {
       throw new BusinessException(UserErrorCode.USER_DUPLICATE_SOCIAL_ACCOUNT);
     }
@@ -141,7 +168,7 @@ public class UserService {
   /**
    * @param user User 엔티티
    * @throws BusinessException 정지 및 탈퇴 회원인 경우
-   * 
+   *
    */
   private void validateAccessible(User user) {
     if (user.getStatus() == UserStatus.SUSPENDED) {
