@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -32,10 +33,11 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       ObjectMapper objectMapper,
-      @Qualifier("jwtDecoder") JwtDecoder jwtDecoder)
+      @Qualifier("jwtDecoder") JwtDecoder jwtDecoder,
+      CorsConfigurationSource corsConfigurationSource)
       throws Exception {
     return http
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .cors(cors -> cors.configurationSource(corsConfigurationSource))
         .csrf(AbstractHttpConfigurer::disable) // JWT를 사용하므로 CSRF를 비활성화
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -62,9 +64,10 @@ public class SecurityConfig {
    * 브라우저 클라이언트의 preflight 및 인증 API 호출을 허용하는 CORS 정책입니다.
    */
   @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
+  public CorsConfigurationSource corsConfigurationSource(
+      @Value("${cors.allowed-origins}") List<String> allowedOrigins) {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOriginPatterns(List.of("*")); // TODO:: 배포에서는 프론트 도메인으로 교체
+    configuration.setAllowedOriginPatterns(allowedOrigins);
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("*"));
     configuration.setAllowCredentials(true);
