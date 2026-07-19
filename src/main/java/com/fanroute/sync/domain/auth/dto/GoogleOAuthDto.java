@@ -17,7 +17,7 @@ public final class GoogleOAuthDto {
       @JsonProperty("expires_in") long expiresIn,
       @JsonProperty("token_type") String tokenType) {
 
-    public boolean hasValidIdToken() {
+    public boolean hasInvalidIdToken() {
       return idToken == null || idToken.isBlank();
     }
   }

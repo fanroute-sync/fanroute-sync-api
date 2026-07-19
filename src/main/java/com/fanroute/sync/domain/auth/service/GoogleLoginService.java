@@ -17,7 +17,8 @@ import com.fanroute.sync.global.external.ExternalApiException;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Google 코드 교환부터 서비스 사용자 연동과 Access Token 발급까지 로그인 흐름을 조정합니다. Google Access Token 자체는 사용자 식별에 사용하지
+ * Google 코드 교환부터 서비스 사용자 연동과 Access Token 발급까지 로그인 흐름을 조정합니다. Google Access
+ * Token 자체는 사용자 식별에 사용하지
  * 않고, 검증된 ID Token의 {@code sub}를 사용합니다.
  */
 @Service
@@ -46,7 +47,7 @@ public class GoogleLoginService {
 
     try {
       GoogleOAuthDto.TokenResponse response = googleTokenClient.exchangeToken(requestForm);
-      if (response == null || response.hasValidIdToken()) {
+      if (response == null || response.hasInvalidIdToken()) {
         throw new BusinessException(AuthErrorCode.GOOGLE_ID_TOKEN_INVALID);
       }
       return response;
