@@ -227,4 +227,64 @@ class UserServiceTest {
 
     assertFalse(user.isDeleted());
   }
+
+  @Test
+  @DisplayName("기존 소셜 사용자는 새로 생성하지 않고 로그인한다")
+  void findsExistingSocialUserForLogin() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.of(user));
+
+    UserService.SocialLoginResult result =
+        userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1");
+
+    assertSame(user, result.user());
+    assertFalse(result.newUser());
+    verify(userRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임으로 생성한다")
+  void createsUserOnFirstSocialLogin() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.empty());
+    when(nicknameGenerator.generate()).thenReturn("route");
+    when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
+
+    UserService.SocialLoginResult result =
+        userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1");
+
+    assertSame(user, result.user());
+    assertTrue(result.newUser());
+  }
+
+  @Test
+  @DisplayName("정지된 소셜 사용자는 로그인할 수 없다")
+  void rejectsSuspendedSocialUserLogin() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    user.suspend();
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.of(user));
+
+    BusinessException exception = assertThrows(BusinessException.class,
+        () -> userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1"));
+
+    assertEquals(UserErrorCode.USER_SUSPENDED, exception.getErrorCode());
+  }
+
+  @Test
+  @DisplayName("탈퇴한 소셜 사용자는 로그인하거나 재가입할 수 없다")
+  void rejectsWithdrawnSocialUserLogin() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    ReflectionTestUtils.setField(user, "id", 1L);
+    user.withdraw(java.time.Instant.now());
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.of(user));
+
+    BusinessException exception = assertThrows(BusinessException.class,
+        () -> userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1"));
+
+    assertEquals(UserErrorCode.USER_WITHDRAWN, exception.getErrorCode());
+  }
 }
