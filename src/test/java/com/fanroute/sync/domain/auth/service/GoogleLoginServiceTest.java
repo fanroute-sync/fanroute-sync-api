@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.MultiValueMap;
 
 import com.fanroute.sync.domain.auth.client.GoogleTokenClient;
@@ -42,6 +43,8 @@ class GoogleLoginServiceTest {
   private UserService userService;
   @Mock
   private AccessTokenService accessTokenService;
+  @Mock
+  private RefreshTokenService refreshTokenService;
 
   private GoogleLoginService googleLoginService;
 
@@ -57,9 +60,11 @@ class GoogleLoginServiceTest {
         "https://api.test.fanroute.com",
         "dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
         java.time.Duration.ofHours(1));
-    AuthProperties properties = new AuthProperties(google, jwt);
+    AuthProperties properties = new AuthProperties(
+        google, jwt, new AuthProperties.Refresh(java.time.Duration.ofDays(14)));
     googleLoginService = new GoogleLoginService(
-        googleTokenClient, idTokenVerifier, userService, accessTokenService, properties);
+        googleTokenClient, idTokenVerifier, userService, accessTokenService, refreshTokenService,
+        properties);
   }
 
   @Test
@@ -69,12 +74,16 @@ class GoogleLoginServiceTest {
         "id-token", 3600,
         "Bearer");
     User user = User.create("route", AuthProvider.GOOGLE, "google-sub");
-    LoginDto.Response expected = LoginDto.Response.of("service-token", 1L, false, 3600);
+    ReflectionTestUtils.setField(user, "id", 1L);
+    LoginDto.Response accessToken = LoginDto.Response.of("service-token", 1L, false, 3600);
+    LoginDto.Response expected = accessToken.withRefreshToken("refresh-token", 1209600);
     when(googleTokenClient.exchangeToken(any())).thenReturn(googleTokens);
     when(idTokenVerifier.verifyAndExtractSubject("id-token")).thenReturn("google-sub");
     when(userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-sub"))
         .thenReturn(new UserService.SocialLoginResult(user, false));
-    when(accessTokenService.issue(user, false)).thenReturn(expected);
+    when(accessTokenService.issue(user, false)).thenReturn(accessToken);
+    when(refreshTokenService.issue(1L))
+        .thenReturn(new RefreshTokenService.IssuedToken("refresh-token", 1209600));
 
     LoginDto.Response response = googleLoginService.login("authorization-code");
 

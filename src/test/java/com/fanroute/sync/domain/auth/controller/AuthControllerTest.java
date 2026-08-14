@@ -35,7 +35,8 @@ class AuthControllerTest {
   @DisplayName("인증 없이 Google 로그인 API에 접근해 Access Token을 받는다")
   void logsInWithoutAuthentication() throws Exception {
     when(googleLoginService.login("authorization-code"))
-        .thenReturn(new LoginDto.Response("access-token", "Bearer", 3600, 1L, true));
+        .thenReturn(new LoginDto.Response(
+            "access-token", "refresh-token", "Bearer", 3600, 1209600, 1L, true));
 
     mockMvc.perform(post("/api/v1/auth/google")
             .contentType(MediaType.APPLICATION_JSON)
@@ -43,6 +44,8 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+        .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
+        .andExpect(jsonPath("$.data.refreshTokenExpiresIn").value(1209600))
         .andExpect(jsonPath("$.data.newUser").value(true));
   }
 
