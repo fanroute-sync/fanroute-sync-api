@@ -18,7 +18,8 @@ import jakarta.validation.constraints.NotNull;
 @ConfigurationProperties(prefix = "auth")
 public record AuthProperties(
     @Valid @NotNull Google google,
-    @Valid @NotNull Jwt jwt) {
+    @Valid @NotNull Jwt jwt,
+    @Valid @NotNull Refresh refresh) {
 
   public record Google(
       @NotBlank String clientId,
@@ -42,6 +43,10 @@ public record AuthProperties(
       @NotBlank String issuer,
       @NotBlank String secret,
       @NotNull Duration accessTokenTtl) {
+
+  }
+
+  public record Refresh(@NotNull Duration tokenTtl) {
 
   }
 }
