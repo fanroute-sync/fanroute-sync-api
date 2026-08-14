@@ -29,6 +29,7 @@ public class GoogleLoginService {
   private final GoogleIdTokenVerifier idTokenVerifier;
   private final UserService userService;
   private final AccessTokenService accessTokenService;
+  private final RefreshTokenService refreshTokenService;
   private final AuthProperties properties;
 
   /**
@@ -39,7 +40,9 @@ public class GoogleLoginService {
     String providerUserId = idTokenVerifier.verifyAndExtractSubject(tokens.idToken());
     UserService.SocialLoginResult result = userService.findOrCreateSocialUser(AuthProvider.GOOGLE,
         providerUserId);
-    return accessTokenService.issue(result.user(), result.newUser());
+    LoginDto.Response response = accessTokenService.issue(result.user(), result.newUser());
+    RefreshTokenService.IssuedToken refreshToken = refreshTokenService.issue(result.user().getId());
+    return response.withRefreshToken(refreshToken.value(), refreshToken.expiresIn());
   }
 
   private GoogleOAuthDto.TokenResponse exchangeToken(String code) {

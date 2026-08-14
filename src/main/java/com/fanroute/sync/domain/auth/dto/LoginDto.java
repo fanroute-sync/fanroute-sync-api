@@ -19,15 +19,22 @@ public final class LoginDto {
    * 소셜 로그인 성공 후 클라이언트에 반환하는 서비스 인증 결과입니다.
    */
   public record Response(
-      String accessToken, String tokenType, long expiresIn, Long userId, boolean newUser) {
+      String accessToken, String refreshToken, String tokenType, long expiresIn,
+      long refreshTokenExpiresIn, Long userId, boolean newUser) {
 
     public static Response of(String token, Long userId, boolean newUser, long ttlSeconds) {
       return new Response(
           token,
+          null,
           "Bearer",
           ttlSeconds,
+          0,
           userId,
           newUser);
+    }
+
+    public Response withRefreshToken(String token, long ttlSeconds) {
+      return new Response(accessToken, token, tokenType, expiresIn, ttlSeconds, userId, newUser);
     }
   }
 
