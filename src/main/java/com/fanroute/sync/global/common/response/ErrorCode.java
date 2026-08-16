@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 public enum ErrorCode implements BaseCode {
     // 공통 에러
     INVALID_PARAMETER(
-            HttpStatus.BAD_REQUEST, "COMMON_INVALID_PARAMETER", "잘못된 파라미터가 포함되었습니다."),
+            HttpStatus.BAD_REQUEST, "COMMON_INVALID_PARAMETER", "입력값 검증에 실패했습니다."),
     INTERNAL_SERVER_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다."),
     METHOD_NOT_ALLOWED(
