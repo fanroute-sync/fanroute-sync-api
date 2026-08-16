@@ -37,9 +37,10 @@ public class GoogleLoginService {
    */
   public LoginDto.Response login(String authorizationCode) {
     GoogleOAuthDto.TokenResponse tokens = exchangeToken(authorizationCode);
-    String providerUserId = idTokenVerifier.verifyAndExtractSubject(tokens.idToken());
+    GoogleIdTokenVerifier.GoogleUserInfo googleUser =
+        idTokenVerifier.verifyAndExtractUserInfo(tokens.idToken());
     UserService.SocialLoginResult result = userService.findOrCreateSocialUser(AuthProvider.GOOGLE,
-        providerUserId);
+        googleUser.subject(), googleUser.email());
     LoginDto.Response response = accessTokenService.issue(result.user(), result.newUser());
     RefreshTokenService.IssuedToken refreshToken = refreshTokenService.issue(result.user().getId());
     return response.withRefreshToken(refreshToken.value(), refreshToken.expiresIn());
