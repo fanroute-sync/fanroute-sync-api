@@ -21,6 +21,8 @@ public enum AuthErrorCode implements BaseCode {
       HttpStatus.BAD_GATEWAY, "AUTH_GOOGLE_API_UNAVAILABLE", "Google 인증 서버를 사용할 수 없습니다."),
   AUTHENTICATION_REQUIRED(
       HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "인증이 필요합니다."),
+  ACCESS_TOKEN_INVALID(
+      HttpStatus.UNAUTHORIZED, "AUTH_ACCESS_TOKEN_INVALID", "Access Token이 유효하지 않습니다."),
   REFRESH_TOKEN_INVALID(
       HttpStatus.UNAUTHORIZED, "AUTH_REFRESH_TOKEN_INVALID", "Refresh Token이 유효하지 않습니다."),
   ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "접근 권한이 없습니다.");
