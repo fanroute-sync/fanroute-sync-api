@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -21,7 +23,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.response.ErrorCode;
-import com.fanroute.sync.global.common.response.ErrorResponse;
+import com.fanroute.sync.global.common.response.ValidationError;
 
 class GlobalExceptionHandlerTest {
 
@@ -40,8 +42,9 @@ class GlobalExceptionHandlerTest {
     when(exception.getBindingResult()).thenReturn(bindingResult);
 
     // When: ExceptionHandler 실행
-    ResponseEntity<ApiResponse<ErrorResponse>> entity = handler.handleValidation(exception);
-    ApiResponse<ErrorResponse> body = entity.getBody();
+    ResponseEntity<ApiResponse<List<ValidationError>>> entity =
+        handler.handleValidation(exception);
+    ApiResponse<List<ValidationError>> body = entity.getBody();
 
     // Then: HTTP Status 400(Bad Request) 및 에러 데이터 상세 검증
     assertAll(
@@ -49,11 +52,12 @@ class GlobalExceptionHandlerTest {
         () -> assertNotNull(body),
         () -> assertFalse(body.success()), // success: false 검증
         () -> assertEquals(ErrorCode.INVALID_PARAMETER.getCode(), body.code()),
-        () -> assertEquals(2, body.data().errors().size()),
-        () -> assertEquals("name", body.data().errors().getFirst().field()),
-        () -> assertEquals("이름은 필수입니다.", body.data().errors().getFirst().reason()),
-        () -> assertNull(body.data().errors().get(1).field()),
-        () -> assertEquals("요청값 조합이 올바르지 않습니다.", body.data().errors().get(1).reason())
+        () -> assertEquals("입력값 검증에 실패했습니다.", body.message()),
+        () -> assertEquals(2, body.data().size()),
+        () -> assertEquals("name", body.data().getFirst().field()),
+        () -> assertEquals("이름은 필수입니다.", body.data().getFirst().message()),
+        () -> assertNull(body.data().get(1).field()),
+        () -> assertEquals("요청값 조합이 올바르지 않습니다.", body.data().get(1).message())
     );
   }
 
