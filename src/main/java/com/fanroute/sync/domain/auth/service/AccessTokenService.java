@@ -31,6 +31,12 @@ public class AccessTokenService {
    * 사용자 ID를 subject로 사용하고, 권한 판단에 필요한 최소 claim만 포함한 Access Token을 발급합니다.
    */
   public LoginDto.Response issue(User user, boolean newUser) {
+    IssuedToken issuedToken = issue(user);
+    return LoginDto.Response.of(issuedToken.value(), user.getId(), newUser,
+        issuedToken.expiresIn());
+  }
+
+  public IssuedToken issue(User user) {
     Instant issuedAt = clock.instant();
     Instant expiresAt = issuedAt.plus(properties.jwt().accessTokenTtl());
 
@@ -45,7 +51,10 @@ public class AccessTokenService {
     JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
     String token = encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
-    return LoginDto.Response.of(token, user.getId(), newUser,
-        properties.jwt().accessTokenTtl().toSeconds());
+    return new IssuedToken(token, properties.jwt().accessTokenTtl().toSeconds());
+  }
+
+  public record IssuedToken(String value, long expiresIn) {
+
   }
 }

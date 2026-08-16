@@ -101,6 +101,20 @@ This project is for a competition. We use Codex as the main coding assistant, so
 - Read configuration from environment variables or project configuration files.
 - Update example environment files when adding required environment variables.
 
+## OpenAPI Documentation
+
+- Keep the Swagger/OpenAPI specification in sync whenever creating or changing a controller,
+  whether written by AI or manually by a teammate.
+- Add `@Tag` to each controller and `@Operation` to each endpoint with concise Korean summaries.
+- Document successful responses with `@ApiResponse` and expected failures with
+  `@ApiErrorCodeExamples` so the shared customizer generates response schemas and examples.
+- Do not duplicate error response bodies manually when an existing `BaseCode` enum represents
+  the failure.
+- Add `@SecurityRequirement(name = "bearerAuth")` only to JWT-protected endpoints.
+- Annotate non-obvious DTO fields with `@Schema`.
+- During `/prompts:team-review`, check that controller diffs have matching Swagger annotations
+  before approving.
+
 ## Team Review Prompt
 
 - Use `/prompts:team-review` for team-oriented code reviews.

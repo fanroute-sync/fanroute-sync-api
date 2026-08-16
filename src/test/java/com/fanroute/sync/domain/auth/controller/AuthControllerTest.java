@@ -17,7 +17,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fanroute.sync.domain.auth.dto.LoginDto;
+import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.service.GoogleLoginService;
+import com.fanroute.sync.domain.auth.service.TokenRefreshService;
 import com.fanroute.sync.global.config.SecurityConfig;
 
 @WebMvcTest(AuthController.class)
@@ -28,6 +30,8 @@ class AuthControllerTest {
   private MockMvc mockMvc;
   @MockitoBean
   private GoogleLoginService googleLoginService;
+  @MockitoBean
+  private TokenRefreshService tokenRefreshService;
   @MockitoBean(name = "jwtDecoder")
   private JwtDecoder jwtDecoder;
 
@@ -56,7 +60,39 @@ class AuthControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"authorizationCode\":\"\"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.success").value(false));
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"))
+        .andExpect(jsonPath("$.message").value("입력값 검증에 실패했습니다."))
+        .andExpect(jsonPath("$.data[0].field").value("authorizationCode"))
+        .andExpect(jsonPath("$.data[0].message").value("인가 코드는 필수입니다."));
+  }
+
+  @Test
+  @DisplayName("인증 없이 Refresh Token으로 토큰을 재발급한다")
+  void refreshesTokenWithoutAuthentication() throws Exception {
+    when(tokenRefreshService.refresh("refresh-token"))
+        .thenReturn(new RefreshTokenDto.Response(
+            "new-access-token", "new-refresh-token", "Bearer", 3600, 1209600));
+
+    mockMvc.perform(post("/api/v1/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"refreshToken\":\"refresh-token\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+        .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+  }
+
+  @Test
+  @DisplayName("Refresh Token이 비어 있으면 실패 응답을 반환한다")
+  void rejectsBlankRefreshToken() throws Exception {
+    mockMvc.perform(post("/api/v1/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"refreshToken\":\"\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"))
+        .andExpect(jsonPath("$.data[0].field").value("refreshToken"))
+        .andExpect(jsonPath("$.data[0].message").value("Refresh Token은 필수입니다."));
   }
 
   @Test
