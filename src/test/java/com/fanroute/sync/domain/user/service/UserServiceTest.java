@@ -48,13 +48,16 @@ class UserServiceTest {
   @Test
   @DisplayName("중복되지 않은 소셜 계정과 닉네임으로 사용자를 생성한다")
   void createUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = User.create(
+        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
-    User created = userService.createUser(AuthProvider.GOOGLE, "google-1");
+    User created = userService.createUser(
+        AuthProvider.GOOGLE, "google-1", "user@example.com");
 
     assertSame(user, created);
+    assertEquals("user@example.com", created.getEmail());
     verify(userRepository)
         .existsByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1");
     verify(userRepository).existsByNickname("route");
@@ -244,19 +247,22 @@ class UserServiceTest {
   }
 
   @Test
-  @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임으로 생성한다")
+  @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임과 이메일로 생성한다")
   void createsUserOnFirstSocialLogin() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = User.create(
+        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.empty());
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
     UserService.SocialLoginResult result =
-        userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1");
+        userService.findOrCreateSocialUser(
+            AuthProvider.GOOGLE, "google-1", "user@example.com");
 
     assertSame(user, result.user());
     assertTrue(result.newUser());
+    assertEquals("user@example.com", result.user().getEmail());
   }
 
   @Test

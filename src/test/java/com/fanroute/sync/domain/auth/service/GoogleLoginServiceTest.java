@@ -78,8 +78,11 @@ class GoogleLoginServiceTest {
     LoginDto.Response accessToken = LoginDto.Response.of("service-token", 1L, false, 3600);
     LoginDto.Response expected = accessToken.withRefreshToken("refresh-token", 1209600);
     when(googleTokenClient.exchangeToken(any())).thenReturn(googleTokens);
-    when(idTokenVerifier.verifyAndExtractSubject("id-token")).thenReturn("google-sub");
-    when(userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-sub"))
+    when(idTokenVerifier.verifyAndExtractUserInfo("id-token"))
+        .thenReturn(new GoogleIdTokenVerifier.GoogleUserInfo(
+            "google-sub", "user@example.com"));
+    when(userService.findOrCreateSocialUser(
+        AuthProvider.GOOGLE, "google-sub", "user@example.com"))
         .thenReturn(new UserService.SocialLoginResult(user, false));
     when(accessTokenService.issue(user, false)).thenReturn(accessToken);
     when(refreshTokenService.issue(1L))
@@ -92,6 +95,8 @@ class GoogleLoginServiceTest {
     ArgumentCaptor<MultiValueMap<String, String>> formCaptor = ArgumentCaptor.forClass(
         MultiValueMap.class);
     verify(googleTokenClient).exchangeToken(formCaptor.capture());
+    verify(userService).findOrCreateSocialUser(
+        AuthProvider.GOOGLE, "google-sub", "user@example.com");
     assertThat(formCaptor.getValue().toSingleValueMap()).containsAllEntriesOf(Map.of(
         "code", "authorization-code",
         "client_id", "client-id",

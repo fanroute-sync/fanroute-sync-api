@@ -38,6 +38,7 @@ public class User extends SoftDeleteEntity {
 
   private static final int MAX_NICKNAME_LENGTH = 30;
   private static final int MAX_PROVIDER_USER_ID_LENGTH = 255;
+  private static final int MAX_EMAIL_LENGTH = 320;
   private static final String WITHDRAWN_NICKNAME_PREFIX = "withdrawn_";
 
   @Id
@@ -54,17 +55,22 @@ public class User extends SoftDeleteEntity {
   @Column(name = "provider_user_id", nullable = false, length = MAX_PROVIDER_USER_ID_LENGTH)
   private String providerUserId; // 소셜 제공자가 발급한 고유 사용자 ID
 
+  @Column(length = MAX_EMAIL_LENGTH)
+  private String email;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private UserStatus status; // 회원의 현재 이용 상태
 
-  private User(String nickname, AuthProvider authProvider, String providerUserId) {
+  private User(String nickname, AuthProvider authProvider, String providerUserId, String email) {
     this.nickname = validateUserNickname(nickname);
 
     this.authProvider = requireNonNull(authProvider, UserErrorCode.USER_INVALID_AUTH_PROVIDER);
 
     this.providerUserId = normalizeRequired(providerUserId, MAX_PROVIDER_USER_ID_LENGTH,
         UserErrorCode.USER_INVALID_PROVIDER_USER_ID);
+
+    this.email = email;
 
     this.status = UserStatus.ACTIVE;
   }
@@ -77,7 +83,12 @@ public class User extends SoftDeleteEntity {
    * </p>
    */
   public static User create(String nickname, AuthProvider authProvider, String providerUserId) {
-    return new User(nickname, authProvider, providerUserId);
+    return new User(nickname, authProvider, providerUserId, null);
+  }
+
+  public static User create(
+      String nickname, AuthProvider authProvider, String providerUserId, String email) {
+    return new User(nickname, authProvider, providerUserId, email);
   }
 
   /**

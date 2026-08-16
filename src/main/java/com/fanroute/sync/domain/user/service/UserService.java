@@ -30,10 +30,15 @@ public class UserService {
    */
   @Transactional
   public User createUser(AuthProvider authProvider, String providerUserId) {
+    return createUser(authProvider, providerUserId, null);
+  }
+
+  @Transactional
+  public User createUser(AuthProvider authProvider, String providerUserId, String email) {
     validateSocialAccountNotDuplicated(authProvider, providerUserId);
 
     String nickname = generateUniqueNickname();
-    User user = User.create(nickname, authProvider, providerUserId);
+    User user = User.create(nickname, authProvider, providerUserId, email);
 
     try {
       // 즉시 flush로 해당 트랜잭션에서 예외
@@ -68,12 +73,18 @@ public class UserService {
   @Transactional
   public SocialLoginResult findOrCreateSocialUser(
       AuthProvider authProvider, String providerUserId) {
+    return findOrCreateSocialUser(authProvider, providerUserId, null);
+  }
+
+  @Transactional
+  public SocialLoginResult findOrCreateSocialUser(
+      AuthProvider authProvider, String providerUserId, String email) {
     return userRepository.findByAuthProviderAndProviderUserId(authProvider, providerUserId)
         .map(user -> {
           validateAccessible(user);
           return new SocialLoginResult(user, false);
         })
-        .orElseGet(() -> new SocialLoginResult(createUser(authProvider, providerUserId), true));
+        .orElseGet(() -> new SocialLoginResult(createUser(authProvider, providerUserId, email), true));
   }
 
   public record SocialLoginResult(User user, boolean newUser) {
