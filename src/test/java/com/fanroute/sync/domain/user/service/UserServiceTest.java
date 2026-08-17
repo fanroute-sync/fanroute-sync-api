@@ -155,6 +155,59 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("탈퇴 사용자는 접근할 수 없다")
+  void cannotAccessWithdrawnUser() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    ReflectionTestUtils.setField(user, "id", 1L);
+    user.withdraw(java.time.Instant.now());
+    when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+    BusinessException exception =
+        assertThrows(BusinessException.class, () -> userService.getAccessibleUser(1L));
+
+    assertEquals(UserErrorCode.USER_WITHDRAWN, exception.getErrorCode());
+  }
+
+  @Test
+  @DisplayName("사용 중이지 않은 닉네임은 사용할 수 있다")
+  void nicknameIsAvailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    assertTrue(userService.isNicknameAvailable(user, " new-route "));
+    verify(userRepository).existsByNickname("new-route");
+  }
+
+  @Test
+  @DisplayName("다른 사용자가 사용 중인 닉네임은 사용할 수 없다")
+  void nicknameIsUnavailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    when(userRepository.existsByNickname("duplicate")).thenReturn(true);
+
+    assertFalse(userService.isNicknameAvailable(user, "duplicate"));
+  }
+
+  @Test
+  @DisplayName("현재 닉네임은 저장소 조회 없이 사용할 수 있다")
+  void currentNicknameIsAvailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    assertTrue(userService.isNicknameAvailable(user, " route "));
+    verify(userRepository, never()).existsByNickname(any());
+  }
+
+  @Test
+  @DisplayName("유효하지 않은 닉네임은 사용 가능 여부를 확인할 수 없다")
+  void invalidNicknameCannotBeChecked() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    BusinessException exception = assertThrows(
+        BusinessException.class,
+        () -> userService.isNicknameAvailable(user, "   "));
+
+    assertEquals(UserErrorCode.USER_INVALID_NICKNAME, exception.getErrorCode());
+  }
+
+  @Test
   @DisplayName("동일한 닉네임으로 변경하면 저장소를 조회하지 않는다")
   void keepSameNickname() {
     User user = User.create("route", AuthProvider.GOOGLE, "google-1");

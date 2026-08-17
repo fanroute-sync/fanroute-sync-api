@@ -84,7 +84,8 @@ public class UserService {
           validateAccessible(user);
           return new SocialLoginResult(user, false);
         })
-        .orElseGet(() -> new SocialLoginResult(createUser(authProvider, providerUserId, email), true));
+        .orElseGet(
+            () -> new SocialLoginResult(createUser(authProvider, providerUserId, email), true));
   }
 
   public record SocialLoginResult(User user, boolean newUser) {
@@ -109,10 +110,10 @@ public class UserService {
    */
   @Transactional
   public User updateNickname(Long userId, String newNickname) {
-    User user = findUser(userId);
-    String normalized = newNickname == null ? null : newNickname.trim();
+    User user = getAccessibleUser(userId);
+    String normalized = User.normalizeNickname(newNickname);
 
-    if (normalized != null && normalized.equals(user.getNickname())) {
+    if (normalized.equals(user.getNickname())) {
       return user;
     }
 
@@ -121,13 +122,24 @@ public class UserService {
     }
 
     try {
-      user.updateNickname(newNickname);
+      user.updateNickname(normalized);
       userRepository.flush();
     } catch (DataIntegrityViolationException e) {
       throw new BusinessException(UserErrorCode.USER_DUPLICATE_NICKNAME);
     }
 
     return user;
+  }
+
+  /**
+   * 현재 사용자를 기준으로 정규화된 닉네임의 사용 가능 여부를 확인합니다.
+   */
+  public boolean isNicknameAvailable(User currentUser, String nickname) {
+    String normalized = User.normalizeNickname(nickname);
+    if (normalized.equals(currentUser.getNickname())) {
+      return true;
+    }
+    return !userRepository.existsByNickname(normalized);
   }
 
   /**
