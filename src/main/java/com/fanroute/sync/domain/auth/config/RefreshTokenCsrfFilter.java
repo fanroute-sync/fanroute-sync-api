@@ -45,6 +45,6 @@ public class RefreshTokenCsrfFilter extends OncePerRequestFilter {
 
   private boolean requiresHeader(HttpServletRequest request) {
     return HttpMethod.POST.matches(request.getMethod())
-        && PROTECTED_PATHS.contains(request.getServletPath());
+        && PROTECTED_PATHS.contains(request.getRequestURI());
   }
 }
