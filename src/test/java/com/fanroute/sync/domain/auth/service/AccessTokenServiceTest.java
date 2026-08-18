@@ -16,7 +16,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import com.fanroute.sync.domain.auth.config.AuthConfig;
 import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
-import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.support.UserFixture;
 
 class AccessTokenServiceTest {
@@ -29,9 +28,9 @@ class AccessTokenServiceTest {
     Instant now = Instant.now();
     AccessTokenService service = new AccessTokenService(
         config.jwtEncoder(properties), properties, Clock.fixed(now, ZoneOffset.UTC));
-    User user = UserFixture.activeUserWithId(1L);
+    AuthPrincipal principal = AuthPrincipal.from(UserFixture.activeUserWithId(1L));
 
-    LoginDto.Response response = service.issue(user, true);
+    LoginDto.Response response = service.issue(principal, true);
     JwtDecoder decoder = config.jwtDecoder(properties);
     Jwt jwt = decoder.decode(response.accessToken());
 

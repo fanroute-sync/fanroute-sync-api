@@ -82,7 +82,7 @@ class GoogleLoginServiceTest {
     when(userService.findOrCreateSocialUser(
         AuthProvider.GOOGLE, "google-sub", "user@example.com"))
         .thenReturn(new UserService.SocialLoginResult(user, false));
-    when(accessTokenService.issue(user, false)).thenReturn(accessToken);
+    when(accessTokenService.issue(AuthPrincipal.from(user), false)).thenReturn(accessToken);
     when(refreshTokenService.issue(1L))
         .thenReturn(new RefreshTokenService.IssuedToken("refresh-token", 1209600));
 

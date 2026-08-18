@@ -40,7 +40,7 @@ class TokenRefreshServiceTest {
     when(userService.getAccessibleUser(1L)).thenReturn(user);
     when(refreshTokenService.rotate("old-token", 1L))
         .thenReturn(new RefreshTokenService.IssuedToken("new-refresh-token", 1209600));
-    when(accessTokenService.issue(user))
+    when(accessTokenService.issue(AuthPrincipal.from(user)))
         .thenReturn(new AccessTokenService.IssuedToken("new-access-token", 3600));
 
     TokenRefreshService.RefreshResult result = service.refresh("old-token");
@@ -50,7 +50,7 @@ class TokenRefreshServiceTest {
     InOrder order = inOrder(refreshTokenService, userService, accessTokenService);
     order.verify(refreshTokenService).findUserId("old-token");
     order.verify(userService).getAccessibleUser(1L);
-    order.verify(accessTokenService).issue(user);
+    order.verify(accessTokenService).issue(AuthPrincipal.from(user));
     order.verify(refreshTokenService).rotate("old-token", 1L);
   }
 

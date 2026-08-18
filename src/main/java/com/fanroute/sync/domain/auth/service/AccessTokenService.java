@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
-import com.fanroute.sync.domain.user.entity.User;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,22 +29,22 @@ public class AccessTokenService {
   /**
    * 사용자 ID를 subject로 사용하고, 권한 판단에 필요한 최소 claim만 포함한 Access Token을 발급합니다.
    */
-  public LoginDto.Response issue(User user, boolean newUser) {
-    IssuedToken issuedToken = issue(user);
-    return LoginDto.Response.of(issuedToken.value(), user.getId(), newUser,
+  public LoginDto.Response issue(AuthPrincipal principal, boolean newUser) {
+    IssuedToken issuedToken = issue(principal);
+    return LoginDto.Response.of(issuedToken.value(), principal.userId(), newUser,
         issuedToken.expiresIn());
   }
 
-  public IssuedToken issue(User user) {
+  public IssuedToken issue(AuthPrincipal principal) {
     Instant issuedAt = clock.instant();
     Instant expiresAt = issuedAt.plus(properties.jwt().accessTokenTtl());
 
     JwtClaimsSet claims = JwtClaimsSet.builder()
         .issuer(properties.jwt().issuer())
-        .subject(user.getId().toString())
+        .subject(principal.userId().toString())
         .issuedAt(issuedAt)
         .expiresAt(expiresAt)
-        .claim("provider", user.getAuthProvider().name())
+        .claim("provider", principal.authProvider().name())
         .build();
 
     JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
