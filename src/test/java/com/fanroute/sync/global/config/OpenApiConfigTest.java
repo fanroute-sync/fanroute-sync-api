@@ -12,6 +12,7 @@ import org.springframework.web.method.HandlerMethod;
 import com.fanroute.sync.global.common.response.ErrorCode;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
@@ -36,9 +37,50 @@ class OpenApiConfigTest {
         .containsKey("COMMON_INVALID_PARAMETER");
   }
 
+  @Test
+  @DisplayName("bearerAuth 보안 요구사항이 있는 엔드포인트에 Access Token 무효 응답을 자동으로 추가한다")
+  void addsAccessTokenInvalidResponseForBearerAuthEndpoint() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    BearerAuthController controller = new BearerAuthController();
+    Method method = BearerAuthController.class.getMethod("endpoint");
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("200", new ApiResponse().description("성공")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    ApiResponse unauthorized = operation.getResponses().get("401");
+    assertThat(unauthorized).isNotNull();
+    assertThat(unauthorized.getContent().get("application/json").getExamples())
+        .containsKey("AUTH_ACCESS_TOKEN_INVALID");
+  }
+
+  @Test
+  @DisplayName("bearerAuth 보안 요구사항이 없는 엔드포인트에는 Access Token 무효 응답을 추가하지 않는다")
+  void doesNotAddAccessTokenInvalidResponseWithoutBearerAuth() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    TestController controller = new TestController();
+    Method method = TestController.class.getMethod("endpoint");
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("200", new ApiResponse().description("성공")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    assertThat(operation.getResponses().get("401")).isNull();
+  }
+
   private static class TestController {
 
     @ApiErrorCodeExamples(type = ErrorCode.class, names = "INVALID_PARAMETER")
+    public void endpoint() {
+
+    }
+  }
+
+  @SecurityRequirement(name = "bearerAuth")
+  private static class BearerAuthController {
+
     public void endpoint() {
 
     }

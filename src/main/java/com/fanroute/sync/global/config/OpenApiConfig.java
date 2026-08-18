@@ -1,5 +1,6 @@
 package com.fanroute.sync.global.config;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.web.method.HandlerMethod;
 
+import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.global.common.response.BaseCode;
 import com.fanroute.sync.global.common.response.ErrorCode;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
@@ -18,6 +20,7 @@ import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.examples.Example;
@@ -41,6 +44,8 @@ import io.swagger.v3.oas.models.responses.ApiResponses;
 @Configuration
 public class OpenApiConfig {
 
+  private static final String BEARER_AUTH_SECURITY_SCHEME = "bearerAuth";
+
   @Bean
   public OperationCustomizer errorCodeExamplesCustomizer() {
     return (operation, handlerMethod) -> {
@@ -53,8 +58,9 @@ public class OpenApiConfig {
     Method method = handlerMethod.getMethod();
     ApiErrorCodeExamples[] annotations =
         method.getAnnotationsByType(ApiErrorCodeExamples.class);
+    boolean requiresBearerAuth = requiresBearerAuth(handlerMethod);
 
-    if (annotations.length == 0) {
+    if (annotations.length == 0 && !requiresBearerAuth) {
       return;
     }
 
@@ -75,6 +81,22 @@ public class OpenApiConfig {
         addErrorResponse(responses, errorCode);
       }
     }
+
+    // bearerAuth로 보호된 엔드포인트는 도메인 컨트롤러가 AuthErrorCode를 직접 참조하지 않아도
+    // Access Token 무효 응답 예시를 공통으로 문서화합니다.
+    if (requiresBearerAuth) {
+      addErrorResponse(responses, AuthErrorCode.ACCESS_TOKEN_INVALID);
+    }
+  }
+
+  private boolean requiresBearerAuth(HandlerMethod handlerMethod) {
+    return hasBearerAuthRequirement(handlerMethod.getMethod())
+        || hasBearerAuthRequirement(handlerMethod.getBeanType());
+  }
+
+  private boolean hasBearerAuthRequirement(AnnotatedElement element) {
+    return Arrays.stream(element.getAnnotationsByType(SecurityRequirement.class))
+        .anyMatch(requirement -> BEARER_AUTH_SECURITY_SCHEME.equals(requirement.name()));
   }
 
   private Map<String, BaseCode> enumConstants(Class<? extends BaseCode> type) {
