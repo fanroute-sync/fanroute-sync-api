@@ -51,9 +51,10 @@ public class SecurityConfig {
 //                           // TODO:: 백엔드에서 확인용으로 작성, 로그인 프론트 연결 시 삭제
                 "/api/v1/auth/google/callback"
             ).permitAll()
-            // 공연 조회는 비로그인 사용자도 접근 가능. 관리자 API는 JWT 대신 관리자 키(X-Admin-Key)로 별도 보호
             .requestMatchers(HttpMethod.GET, "/api/v1/concerts", "/api/v1/concerts/*")
             .permitAll()
+            // 관리자 API는 X-Admin-Key로 별도 인증합니다.
+            .requestMatchers("/api/v1/admin/**").permitAll()
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
             .jwt(jwt -> jwt.decoder(jwtDecoder))
