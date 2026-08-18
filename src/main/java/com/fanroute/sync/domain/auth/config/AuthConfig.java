@@ -23,8 +23,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import com.fanroute.sync.domain.auth.client.GoogleTokenClient;
-import com.fanroute.sync.global.config.ExternalApiProperties;
 import com.fanroute.sync.global.external.ExternalApiClientFactory;
+import com.fanroute.sync.global.external.ExternalApiProperties;
 
 /**
  * Google OIDC 검증과 서비스 JWT 발급에 필요한 인증 Bean을 구성합니다.

@@ -1,4 +1,4 @@
-package com.fanroute.sync.global.config;
+package com.fanroute.sync.global.external;
 
 import java.net.http.HttpClient;
 
@@ -9,11 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-
-import com.fanroute.sync.global.external.ExternalApiClientFactory;
-import com.fanroute.sync.global.external.ExternalApiErrorType;
-import com.fanroute.sync.global.external.ExternalApiException;
-import com.fanroute.sync.global.external.ExternalApiLoggingInterceptor;
 
 /**
  * 외부 API 호출에 사용할 공통 HTTP 클라이언트 구성

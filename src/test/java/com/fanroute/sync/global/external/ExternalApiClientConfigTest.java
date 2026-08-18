@@ -1,4 +1,4 @@
-package com.fanroute.sync.global.config;
+package com.fanroute.sync.global.external;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,12 +22,6 @@ import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.service.annotation.GetExchange;
-
-import com.fanroute.sync.global.external.ExternalApiClientFactory;
-import com.fanroute.sync.global.external.ExternalApiErrorType;
-import com.fanroute.sync.global.external.ExternalApiException;
-import com.fanroute.sync.global.external.ExternalApiLoggingInterceptor;
-import com.fanroute.sync.global.external.ExternalApiTransportExceptionMapper;
 
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;

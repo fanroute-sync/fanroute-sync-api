@@ -1,4 +1,4 @@
-package com.fanroute.sync.global.config;
+package com.fanroute.sync.global.external;
 
 import java.net.URI;
 import java.time.Duration;
