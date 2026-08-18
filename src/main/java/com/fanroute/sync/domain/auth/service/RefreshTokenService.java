@@ -38,6 +38,31 @@ public class RefreshTokenService {
       """;
   private static final DefaultRedisScript<Long> ROTATE_REDIS_SCRIPT =
       new DefaultRedisScript<>(ROTATE_SCRIPT, Long.class);
+  private static final String REVOKE_SCRIPT = """
+      local userId = redis.call('GET', KEYS[1])
+      if not userId then
+        return 0
+      end
+      local userKey = ARGV[1] .. userId
+      if redis.call('GET', userKey) == ARGV[2] then
+        redis.call('DEL', userKey)
+      end
+      redis.call('DEL', KEYS[1])
+      return 1
+      """;
+  private static final DefaultRedisScript<Long> REVOKE_REDIS_SCRIPT =
+      new DefaultRedisScript<>(REVOKE_SCRIPT, Long.class);
+  private static final String REVOKE_ALL_SCRIPT = """
+      local tokenHash = redis.call('GET', KEYS[1])
+      if not tokenHash then
+        return 0
+      end
+      redis.call('DEL', ARGV[1] .. tokenHash)
+      redis.call('DEL', KEYS[1])
+      return 1
+      """;
+  private static final DefaultRedisScript<Long> REVOKE_ALL_REDIS_SCRIPT =
+      new DefaultRedisScript<>(REVOKE_ALL_SCRIPT, Long.class);
 
   private final StringRedisTemplate redisTemplate;
   private final AuthProperties properties;
@@ -90,6 +115,22 @@ public class RefreshTokenService {
       throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_INVALID);
     }
     return new IssuedToken(newToken, ttl.toSeconds());
+  }
+
+  public void revoke(String token) {
+    validateFormat(token);
+    String tokenHash = hash(token);
+    redisTemplate.execute(
+        REVOKE_REDIS_SCRIPT,
+        java.util.List.of(TOKEN_KEY_PREFIX + tokenHash),
+        USER_KEY_PREFIX, tokenHash);
+  }
+
+  public void revokeAll(Long userId) {
+    redisTemplate.execute(
+        REVOKE_ALL_REDIS_SCRIPT,
+        java.util.List.of(USER_KEY_PREFIX + userId),
+        TOKEN_KEY_PREFIX);
   }
 
   private String generateToken() {

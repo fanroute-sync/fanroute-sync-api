@@ -3,6 +3,7 @@ package com.fanroute.sync.domain.user.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,6 +35,23 @@ public class UserController {
 
   private final CurrentUserService currentUserService;
   private final UserService userService;
+
+  @Operation(summary = "회원 탈퇴", description = "현재 사용자를 탈퇴 처리하고 보유한 모든 Refresh Token을 폐기합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "회원 탈퇴 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = AuthErrorCode.class, names = "ACCESS_TOKEN_INVALID")
+  @ApiErrorCodeExamples(
+      type = UserErrorCode.class,
+      names = {"USER_NOT_FOUND", "USER_SUSPENDED", "USER_WITHDRAWN"})
+  @DeleteMapping("/me")
+  public ResponseEntity<ApiResponse<Void>> withdraw(
+      @AuthenticationPrincipal Jwt jwt) {
+    User currentUser = currentUserService.getCurrentUser(jwt);
+    userService.withdrawUser(currentUser.getId());
+    return ApiResponse.<Void>ok(null).toResponseEntity();
+  }
 
   @Operation(summary = "내 프로필 조회")
   @ApiResponses({

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -173,5 +174,35 @@ class RefreshTokenServiceTest {
                 .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID));
 
     verify(redisTemplate, never()).delete(any(String.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  @DisplayName("Refresh Token 폐기는 이미 폐기된 경우에도 성공한다")
+  void revokesRefreshTokenIdempotently() {
+    String token = "a".repeat(43);
+
+    service.revoke(token);
+    service.revoke(token);
+
+    verify(redisTemplate, times(2)).execute(
+        any(RedisScript.class), anyList(), any(Object[].class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  @DisplayName("사용자의 모든 Refresh Token을 폐기한다")
+  void revokesAllRefreshTokens() {
+    service.revokeAll(1L);
+
+    @SuppressWarnings("rawtypes")
+    ArgumentCaptor<RedisScript> scriptCaptor = ArgumentCaptor.forClass(RedisScript.class);
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<String>> keysCaptor = ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<Object[]> argumentsCaptor = ArgumentCaptor.forClass(Object[].class);
+    verify(redisTemplate).execute(
+        scriptCaptor.capture(), keysCaptor.capture(), argumentsCaptor.capture());
+    assertThat(keysCaptor.getValue()).containsExactly("auth:refresh:user:1");
+    assertThat(argumentsCaptor.getValue()).containsExactly("auth:refresh:");
   }
 }
