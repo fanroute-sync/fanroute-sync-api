@@ -19,10 +19,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.domain.user.entity.User;
-import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
 class CurrentUserServiceTest {
@@ -40,7 +40,7 @@ class CurrentUserServiceTest {
   @Test
   @DisplayName("JWT sub의 사용자 ID로 현재 사용자를 조회한다")
   void getsCurrentUserFromJwtSubject() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userService.getAccessibleUser(1L)).thenReturn(user);
 
     User currentUser = currentUserService.getCurrentUser(jwt("1"));

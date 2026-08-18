@@ -20,7 +20,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.user.entity.User;
@@ -29,6 +28,7 @@ import com.fanroute.sync.domain.user.entity.vo.UserStatus;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -52,8 +52,7 @@ class UserServiceTest {
   @Test
   @DisplayName("중복되지 않은 소셜 계정과 닉네임으로 사용자를 생성한다")
   void createUser() {
-    User user = User.create(
-        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
+    User user = UserFixture.activeUser();
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
@@ -128,7 +127,7 @@ class UserServiceTest {
   @Test
   @DisplayName("활성 사용자를 ID로 조회한다")
   void getAccessibleUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
     assertSame(user, userService.getAccessibleUser(1L));
@@ -139,8 +138,8 @@ class UserServiceTest {
   void getMissingUser() {
     when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-    BusinessException exception =
-        assertThrows(BusinessException.class, () -> userService.findUser(1L));
+    BusinessException exception = assertThrows(BusinessException.class,
+        () -> userService.findUser(1L));
 
     assertEquals(UserErrorCode.USER_NOT_FOUND, exception.getErrorCode());
   }
@@ -148,12 +147,12 @@ class UserServiceTest {
   @Test
   @DisplayName("정지 사용자는 접근할 수 없다")
   void cannotAccessSuspendedUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     user.suspend();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-    BusinessException exception =
-        assertThrows(BusinessException.class, () -> userService.getAccessibleUser(1L));
+    BusinessException exception = assertThrows(BusinessException.class,
+        () -> userService.getAccessibleUser(1L));
 
     assertEquals(UserErrorCode.USER_SUSPENDED, exception.getErrorCode());
   }
@@ -161,13 +160,12 @@ class UserServiceTest {
   @Test
   @DisplayName("탈퇴 사용자는 접근할 수 없다")
   void cannotAccessWithdrawnUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    User user = UserFixture.activeUserWithId(1L);
     user.withdraw(java.time.Instant.now());
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-    BusinessException exception =
-        assertThrows(BusinessException.class, () -> userService.getAccessibleUser(1L));
+    BusinessException exception = assertThrows(BusinessException.class,
+        () -> userService.getAccessibleUser(1L));
 
     assertEquals(UserErrorCode.USER_WITHDRAWN, exception.getErrorCode());
   }
@@ -175,7 +173,7 @@ class UserServiceTest {
   @Test
   @DisplayName("사용 중이지 않은 닉네임은 사용할 수 있다")
   void nicknameIsAvailable() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
 
     assertTrue(userService.isNicknameAvailable(user, " new-route "));
     verify(userRepository).existsByNickname("new-route");
@@ -184,7 +182,7 @@ class UserServiceTest {
   @Test
   @DisplayName("다른 사용자가 사용 중인 닉네임은 사용할 수 없다")
   void nicknameIsUnavailable() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.existsByNickname("duplicate")).thenReturn(true);
 
     assertFalse(userService.isNicknameAvailable(user, "duplicate"));
@@ -193,7 +191,7 @@ class UserServiceTest {
   @Test
   @DisplayName("현재 닉네임은 저장소 조회 없이 사용할 수 있다")
   void currentNicknameIsAvailable() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
 
     assertTrue(userService.isNicknameAvailable(user, " route "));
     verify(userRepository, never()).existsByNickname(any());
@@ -202,7 +200,7 @@ class UserServiceTest {
   @Test
   @DisplayName("유효하지 않은 닉네임은 사용 가능 여부를 확인할 수 없다")
   void invalidNicknameCannotBeChecked() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
 
     BusinessException exception = assertThrows(
         BusinessException.class,
@@ -214,7 +212,7 @@ class UserServiceTest {
   @Test
   @DisplayName("동일한 닉네임으로 변경하면 저장소를 조회하지 않는다")
   void keepSameNickname() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
     User updated = userService.updateNickname(1L, " route ");
@@ -227,7 +225,7 @@ class UserServiceTest {
   @Test
   @DisplayName("중복된 닉네임으로 변경할 수 없다")
   void cannotUpdateDuplicateNickname() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     when(userRepository.existsByNickname("duplicate")).thenReturn(true);
 
@@ -241,7 +239,7 @@ class UserServiceTest {
   @Test
   @DisplayName("닉네임 변경 flush에서 발생한 충돌을 중복 예외로 변환한다")
   void handleNicknameUpdateConflict() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     org.mockito.Mockito.doThrow(new DataIntegrityViolationException("constraint violation"))
         .when(userRepository).flush();
@@ -256,7 +254,7 @@ class UserServiceTest {
   @Test
   @DisplayName("사용자를 정지한 뒤 다시 활성화한다")
   void suspendAndActivateUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
     userService.suspendUser(1L);
@@ -269,8 +267,7 @@ class UserServiceTest {
   @Test
   @DisplayName("사용자를 탈퇴 상태로 변경한다")
   void withdrawUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    User user = UserFixture.activeUserWithId(1L);
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
     userService.withdrawUser(1L);
@@ -284,7 +281,7 @@ class UserServiceTest {
   @Test
   @DisplayName("활성 사용자는 삭제 상태가 아니다")
   void activeUserIsNotDeleted() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
 
     assertFalse(user.isDeleted());
   }
@@ -292,12 +289,12 @@ class UserServiceTest {
   @Test
   @DisplayName("기존 소셜 사용자는 새로 생성하지 않고 로그인한다")
   void findsExistingSocialUserForLogin() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.of(user));
 
-    UserService.SocialLoginResult result =
-        userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1");
+    UserService.SocialLoginResult result = userService.findOrCreateSocialUser(AuthProvider.GOOGLE,
+        "google-1");
 
     assertSame(user, result.user());
     assertFalse(result.newUser());
@@ -307,16 +304,14 @@ class UserServiceTest {
   @Test
   @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임과 이메일로 생성한다")
   void createsUserOnFirstSocialLogin() {
-    User user = User.create(
-        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
+    User user = UserFixture.activeUser();
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.empty());
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
-    UserService.SocialLoginResult result =
-        userService.findOrCreateSocialUser(
-            AuthProvider.GOOGLE, "google-1", "user@example.com");
+    UserService.SocialLoginResult result = userService.findOrCreateSocialUser(
+        AuthProvider.GOOGLE, "google-1", "user@example.com");
 
     assertSame(user, result.user());
     assertTrue(result.newUser());
@@ -326,7 +321,7 @@ class UserServiceTest {
   @Test
   @DisplayName("정지된 소셜 사용자는 로그인할 수 없다")
   void rejectsSuspendedSocialUserLogin() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = UserFixture.activeUser();
     user.suspend();
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.of(user));
@@ -340,8 +335,7 @@ class UserServiceTest {
   @Test
   @DisplayName("탈퇴한 소셜 사용자는 로그인하거나 재가입할 수 없다")
   void rejectsWithdrawnSocialUserLogin() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    User user = UserFixture.activeUserWithId(1L);
     user.withdraw(java.time.Instant.now());
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.of(user));

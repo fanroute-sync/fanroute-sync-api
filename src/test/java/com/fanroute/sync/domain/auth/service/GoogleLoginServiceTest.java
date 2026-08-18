@@ -17,7 +17,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.MultiValueMap;
 
 import com.fanroute.sync.domain.auth.client.GoogleTokenClient;
@@ -31,6 +30,7 @@ import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.external.ExternalApiErrorType;
 import com.fanroute.sync.global.external.ExternalApiException;
+import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
 class GoogleLoginServiceTest {
@@ -73,8 +73,7 @@ class GoogleLoginServiceTest {
     GoogleOAuthDto.TokenResponse googleTokens = new GoogleOAuthDto.TokenResponse("access",
         "id-token", 3600,
         "Bearer");
-    User user = User.create("route", AuthProvider.GOOGLE, "google-sub");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    User user = UserFixture.activeUserWithId(1L);
     LoginDto.Response accessToken = LoginDto.Response.of("service-token", 1L, false, 3600);
     when(googleTokenClient.exchangeToken(any())).thenReturn(googleTokens);
     when(idTokenVerifier.verifyAndExtractUserInfo("id-token"))

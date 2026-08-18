@@ -1,14 +1,14 @@
 package com.fanroute.sync.domain.user.controller;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,17 +20,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fanroute.sync.domain.auth.controller.RefreshTokenCookie;
 import com.fanroute.sync.domain.auth.service.CurrentUserService;
 import com.fanroute.sync.domain.user.entity.User;
-import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.UserFixture;
 
 @WebMvcTest(UserController.class)
 @Import({SecurityConfig.class, RefreshTokenCookie.class})
@@ -49,9 +48,7 @@ class UserControllerTest {
 
   @BeforeEach
   void setUp() {
-    user = User.create(
-        "route", AuthProvider.GOOGLE, "private-google-sub", "user@example.com");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    user = UserFixture.activeUserWithId(1L);
   }
 
   @Test
@@ -130,9 +127,8 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 사용자의 닉네임을 수정하고 변경된 프로필을 반환한다")
   void updatesMyProfile() throws Exception {
-    User updated = User.create(
-        "new-route", AuthProvider.GOOGLE, "private-google-sub", "user@example.com");
-    ReflectionTestUtils.setField(updated, "id", 1L);
+    User updated = UserFixture.activeUserWithId(1L);
+    updated.updateNickname("new-route");
     when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.updateNickname(1L, "new-route")).thenReturn(updated);
