@@ -27,6 +27,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -85,15 +86,12 @@ public class AuthController {
           name = RefreshTokenCsrfFilter.HEADER_NAME,
           description = "Cookie 기반 인증 요청을 구분하는 CSRF 방어 헤더",
           in = ParameterIn.HEADER,
+          schema = @Schema(defaultValue = "XMLHttpRequest"),
           required = true)
   })
   @PostMapping("/token/refresh")
   public ResponseEntity<ApiResponse<RefreshTokenDto.Response>> refreshToken(
-      @Parameter(
-          name = RefreshTokenCookie.NAME,
-          description = "HttpOnly Cookie로 전달되는 Refresh Token",
-          in = ParameterIn.COOKIE,
-          required = true)
+      @Parameter(hidden = true)
       @CookieValue(value = RefreshTokenCookie.NAME, required = false) String refreshToken) {
     if (refreshToken == null) {
       throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_INVALID);
@@ -120,14 +118,12 @@ public class AuthController {
           name = RefreshTokenCsrfFilter.HEADER_NAME,
           description = "Cookie 기반 인증 요청을 구분하는 CSRF 방어 헤더",
           in = ParameterIn.HEADER,
+          schema = @Schema(defaultValue = "XMLHttpRequest"),
           required = true)
   })
   @PostMapping("/logout")
   public ResponseEntity<ApiResponse<Void>> logout(
-      @Parameter(
-          name = RefreshTokenCookie.NAME,
-          description = "폐기할 Refresh Token Cookie",
-          in = ParameterIn.COOKIE)
+      @Parameter(hidden = true)
       @CookieValue(value = RefreshTokenCookie.NAME, required = false) String refreshToken) {
     if (refreshToken != null) {
       refreshTokenService.revoke(refreshToken);

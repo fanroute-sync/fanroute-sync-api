@@ -59,3 +59,7 @@ external-api:
       base-url: ${GOOGLE_API_BASE_URL:https://oauth2.googleapis.com}
     tour:
       base-url: ${TOUR_API_BASE_URL:https://apis.data.go.kr}
+
+springdoc:
+  swagger-ui:
+    with-credentials: true
