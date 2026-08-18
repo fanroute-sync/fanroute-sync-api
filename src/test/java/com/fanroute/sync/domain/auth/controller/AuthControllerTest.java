@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.fanroute.sync.domain.auth.config.RefreshTokenCsrfFilter;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.service.GoogleLoginService;
@@ -85,6 +86,7 @@ class AuthControllerTest {
             new RefreshTokenService.IssuedToken("new-refresh-token", 1209600)));
 
     mockMvc.perform(post("/api/v1/auth/token/refresh")
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest")
             .cookie(new Cookie(RefreshTokenCookie.NAME, "refresh-token")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
@@ -96,7 +98,8 @@ class AuthControllerTest {
   @Test
   @DisplayName("Refresh Token Cookie가 없으면 재발급을 거부한다")
   void rejectsMissingRefreshTokenCookie() throws Exception {
-    mockMvc.perform(post("/api/v1/auth/token/refresh"))
+    mockMvc.perform(post("/api/v1/auth/token/refresh")
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
 
@@ -107,6 +110,7 @@ class AuthControllerTest {
   @DisplayName("로그아웃은 Refresh Token을 폐기하고 Cookie를 삭제한다")
   void logsOutAndClearsCookie() throws Exception {
     mockMvc.perform(post("/api/v1/auth/logout")
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest")
             .cookie(new Cookie(RefreshTokenCookie.NAME, "a".repeat(43))))
         .andExpect(status().isOk())
         .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
@@ -118,9 +122,18 @@ class AuthControllerTest {
   @Test
   @DisplayName("Refresh Token Cookie가 없어도 로그아웃은 멱등하게 성공한다")
   void logsOutWithoutCookie() throws Exception {
-    mockMvc.perform(post("/api/v1/auth/logout"))
+    mockMvc.perform(post("/api/v1/auth/logout")
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest"))
         .andExpect(status().isOk())
         .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+  }
+
+  @Test
+  @DisplayName("CSRF 방어 헤더가 없으면 Cookie 인증 요청을 거부한다")
+  void rejectsRequestWithoutCsrfHeader() throws Exception {
+    mockMvc.perform(post("/api/v1/auth/logout"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_CSRF_HEADER_REQUIRED"));
   }
 
   @Test

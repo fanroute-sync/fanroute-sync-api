@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fanroute.sync.domain.auth.config.RefreshTokenCsrfFilter;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
@@ -24,6 +25,7 @@ import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -74,10 +76,17 @@ public class AuthController {
   })
   @ApiErrorCodeExamples(
       type = AuthErrorCode.class,
-      names = "REFRESH_TOKEN_INVALID")
+      names = {"REFRESH_TOKEN_INVALID", "CSRF_HEADER_REQUIRED"})
   @ApiErrorCodeExamples(
       type = UserErrorCode.class,
       names = {"USER_SUSPENDED", "USER_WITHDRAWN"})
+  @Parameters({
+      @Parameter(
+          name = RefreshTokenCsrfFilter.HEADER_NAME,
+          description = "Cookie 기반 인증 요청을 구분하는 CSRF 방어 헤더",
+          in = ParameterIn.HEADER,
+          required = true)
+  })
   @PostMapping("/token/refresh")
   public ResponseEntity<ApiResponse<RefreshTokenDto.Response>> refreshToken(
       @Parameter(
@@ -105,7 +114,14 @@ public class AuthController {
   })
   @ApiErrorCodeExamples(
       type = AuthErrorCode.class,
-      names = "REFRESH_TOKEN_INVALID")
+      names = {"REFRESH_TOKEN_INVALID", "CSRF_HEADER_REQUIRED"})
+  @Parameters({
+      @Parameter(
+          name = RefreshTokenCsrfFilter.HEADER_NAME,
+          description = "Cookie 기반 인증 요청을 구분하는 CSRF 방어 헤더",
+          in = ParameterIn.HEADER,
+          required = true)
+  })
   @PostMapping("/logout")
   public ResponseEntity<ApiResponse<Void>> logout(
       @Parameter(
