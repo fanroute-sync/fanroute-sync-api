@@ -30,7 +30,9 @@ import com.fanroute.sync.global.config.SecurityConfig;
 
 import jakarta.servlet.http.Cookie;
 
-@WebMvcTest(AuthController.class)
+@WebMvcTest(
+    controllers = AuthController.class,
+    properties = "auth.refresh.cookie.secure=true")
 @Import({SecurityConfig.class, RefreshTokenCookie.class})
 class AuthControllerTest {
 
