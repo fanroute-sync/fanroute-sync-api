@@ -13,14 +13,12 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.user.entity.User;
-import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
 class TokenRefreshServiceTest {
@@ -37,13 +35,12 @@ class TokenRefreshServiceTest {
   @Test
   @DisplayName("Refresh Token을 회전하고 새로운 Access Token을 발급한다")
   void rotatesRefreshTokenAndIssuesAccessToken() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-sub");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    User user = UserFixture.activeUserWithId(1L);
     when(refreshTokenService.findUserId("old-token")).thenReturn(1L);
     when(userService.getAccessibleUser(1L)).thenReturn(user);
     when(refreshTokenService.rotate("old-token", 1L))
         .thenReturn(new RefreshTokenService.IssuedToken("new-refresh-token", 1209600));
-    when(accessTokenService.issue(user))
+    when(accessTokenService.issue(AuthPrincipal.from(user)))
         .thenReturn(new AccessTokenService.IssuedToken("new-access-token", 3600));
 
     TokenRefreshService.RefreshResult result = service.refresh("old-token");
@@ -53,7 +50,7 @@ class TokenRefreshServiceTest {
     InOrder order = inOrder(refreshTokenService, userService, accessTokenService);
     order.verify(refreshTokenService).findUserId("old-token");
     order.verify(userService).getAccessibleUser(1L);
-    order.verify(accessTokenService).issue(user);
+    order.verify(accessTokenService).issue(AuthPrincipal.from(user));
     order.verify(refreshTokenService).rotate("old-token", 1L);
   }
 

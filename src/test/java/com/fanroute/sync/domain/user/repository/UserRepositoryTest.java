@@ -18,6 +18,7 @@ import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
 import com.fanroute.sync.support.AbstractRepositoryTest;
+import com.fanroute.sync.support.UserFixture;
 
 class UserRepositoryTest extends AbstractRepositoryTest {
 
@@ -27,25 +28,17 @@ class UserRepositoryTest extends AbstractRepositoryTest {
   @Test
   @DisplayName("ID와 상태로 사용자를 조회한다")
   void findByIdAndStatus() {
-    User saved = userRepository.saveAndFlush(
-        User.create(
-            "route",
-            AuthProvider.GOOGLE,
-            "google-1"
-        )
-    );
+    User saved = userRepository.saveAndFlush(UserFixture.activeUser());
 
     assertTrue(
         userRepository
             .findByIdAndStatus(saved.getId(), UserStatus.ACTIVE)
-            .isPresent()
-    );
+            .isPresent());
 
     assertFalse(
         userRepository
             .findByIdAndStatus(saved.getId(), UserStatus.SUSPENDED)
-            .isPresent()
-    );
+            .isPresent());
 
     assertNotNull(saved.getCreatedAt());
     assertNotNull(saved.getUpdatedAt());
@@ -58,9 +51,7 @@ class UserRepositoryTest extends AbstractRepositoryTest {
         User.create(
             "route",
             AuthProvider.APPLE,
-            "apple-1"
-        )
-    );
+            "apple-1"));
 
     assertTrue(userRepository.existsByNickname("route"));
     assertFalse(userRepository.existsByNickname("another"));
@@ -73,15 +64,12 @@ class UserRepositoryTest extends AbstractRepositoryTest {
         User.create(
             "route",
             AuthProvider.META,
-            "meta-1"
-        )
-    );
+            "meta-1"));
 
     User found = userRepository
         .findByAuthProviderAndProviderUserId(
             AuthProvider.META,
-            "meta-1"
-        )
+            "meta-1")
         .orElseThrow();
 
     assertEquals("route", found.getNickname());
@@ -104,11 +92,7 @@ class UserRepositoryTest extends AbstractRepositoryTest {
   @Test
   @DisplayName("소셜 로그인 식별자와 사용자 상태로 조회한다")
   void findBySocialAccountAndStatus() {
-    User user = User.create(
-        "route",
-        AuthProvider.GOOGLE,
-        "google-1"
-    );
+    User user = UserFixture.activeUser();
     user.suspend();
 
     userRepository.saveAndFlush(user);
@@ -118,32 +102,22 @@ class UserRepositoryTest extends AbstractRepositoryTest {
             .findByAuthProviderAndProviderUserIdAndStatus(
                 AuthProvider.GOOGLE,
                 "google-1",
-                UserStatus.SUSPENDED
-            )
-            .isPresent()
-    );
+                UserStatus.SUSPENDED)
+            .isPresent());
 
     assertFalse(
         userRepository
             .findByAuthProviderAndProviderUserIdAndStatus(
                 AuthProvider.GOOGLE,
                 "google-1",
-                UserStatus.ACTIVE
-            )
-            .isPresent()
-    );
+                UserStatus.ACTIVE)
+            .isPresent());
   }
 
   @Test
   @DisplayName("탈퇴하지 않은 사용자끼리는 동일한 닉네임을 사용할 수 없다")
   void cannotSaveDuplicateNickname() {
-    userRepository.saveAndFlush(
-        User.create(
-            "route",
-            AuthProvider.GOOGLE,
-            "google-1"
-        )
-    );
+    userRepository.saveAndFlush(UserFixture.activeUser());
 
     assertThrows(
         DataIntegrityViolationException.class,
@@ -151,10 +125,7 @@ class UserRepositoryTest extends AbstractRepositoryTest {
             User.create(
                 "route",
                 AuthProvider.APPLE,
-                "apple-1"
-            )
-        )
-    );
+                "apple-1")));
   }
 
   @Test
@@ -164,9 +135,7 @@ class UserRepositoryTest extends AbstractRepositoryTest {
         User.create(
             "route-one",
             AuthProvider.GOOGLE,
-            "google-1"
-        )
-    );
+            "google-1"));
 
     assertThrows(
         DataIntegrityViolationException.class,
@@ -174,10 +143,7 @@ class UserRepositoryTest extends AbstractRepositoryTest {
             User.create(
                 "route-two",
                 AuthProvider.GOOGLE,
-                "google-1"
-            )
-        )
-    );
+                "google-1")));
   }
 
   @Test
@@ -187,26 +153,20 @@ class UserRepositoryTest extends AbstractRepositoryTest {
         User.create(
             "route-one",
             AuthProvider.GOOGLE,
-            "provider-user-1"
-        )
-    );
+            "provider-user-1"));
 
     assertDoesNotThrow(
         () -> userRepository.saveAndFlush(
             User.create(
                 "route-two",
                 AuthProvider.APPLE,
-                "provider-user-1"
-            )
-        )
-    );
+                "provider-user-1")));
   }
 
   @Test
   @DisplayName("탈퇴하면 기존 닉네임은 해제되고 소셜 계정 식별자는 유지된다")
   void keepSocialAccountAfterWithdrawal() {
-    User user = userRepository.saveAndFlush(
-        User.create("route", AuthProvider.GOOGLE, "google-1"));
+    User user = userRepository.saveAndFlush(UserFixture.activeUser());
 
     user.withdraw(Instant.parse("2026-07-17T00:00:00Z"));
     userRepository.flush();

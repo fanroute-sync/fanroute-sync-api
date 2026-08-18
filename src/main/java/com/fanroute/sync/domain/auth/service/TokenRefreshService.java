@@ -19,7 +19,8 @@ public class TokenRefreshService {
   public RefreshResult refresh(String refreshToken) {
     Long userId = refreshTokenService.findUserId(refreshToken);
     User user = userService.getAccessibleUser(userId);
-    AccessTokenService.IssuedToken newAccessToken = accessTokenService.issue(user);
+    AccessTokenService.IssuedToken newAccessToken =
+        accessTokenService.issue(AuthPrincipal.from(user));
     RefreshTokenService.IssuedToken newRefreshToken =
         refreshTokenService.rotate(refreshToken, userId);
     RefreshTokenDto.Response response = new RefreshTokenDto.Response(

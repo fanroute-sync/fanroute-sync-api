@@ -14,13 +14,14 @@ import org.springframework.stereotype.Service;
 
 import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
+import com.fanroute.sync.domain.user.service.SessionRevoker;
 import com.fanroute.sync.global.common.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class RefreshTokenService {
+public class RefreshTokenService implements SessionRevoker {
 
   private static final int TOKEN_BYTES = 32;
   private static final String TOKEN_KEY_PREFIX = "auth:refresh:";
@@ -126,6 +127,7 @@ public class RefreshTokenService {
         USER_KEY_PREFIX, tokenHash);
   }
 
+  @Override
   public void revokeAll(Long userId) {
     redisTemplate.execute(
         REVOKE_ALL_REDIS_SCRIPT,

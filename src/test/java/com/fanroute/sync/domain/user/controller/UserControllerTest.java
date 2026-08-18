@@ -1,14 +1,14 @@
 package com.fanroute.sync.domain.user.controller;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,28 +20,32 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.fanroute.sync.domain.auth.controller.RefreshTokenCookie;
-import com.fanroute.sync.domain.auth.service.CurrentUserService;
 import com.fanroute.sync.domain.user.entity.User;
-import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
+import com.fanroute.sync.domain.user.service.CurrentUserResolver;
+import com.fanroute.sync.domain.user.service.SessionCookieClearer;
 import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.UserFixture;
 
 @WebMvcTest(UserController.class)
-@Import({SecurityConfig.class, RefreshTokenCookie.class})
+@Import(SecurityConfig.class)
 class UserControllerTest {
+
+  private static final String CLEARED_COOKIE_HEADER =
+      "refreshToken=; Path=/api/v1/auth; Max-Age=0; Secure; HttpOnly; SameSite=Lax";
 
   @Autowired
   private MockMvc mockMvc;
   @MockitoBean
-  private CurrentUserService currentUserService;
+  private CurrentUserResolver currentUserResolver;
   @MockitoBean
   private UserService userService;
+  @MockitoBean
+  private SessionCookieClearer sessionCookieClearer;
   @MockitoBean(name = "jwtDecoder")
   private JwtDecoder jwtDecoder;
 
@@ -49,15 +53,13 @@ class UserControllerTest {
 
   @BeforeEach
   void setUp() {
-    user = User.create(
-        "route", AuthProvider.GOOGLE, "private-google-sub", "user@example.com");
-    ReflectionTestUtils.setField(user, "id", 1L);
+    user = UserFixture.activeUserWithId(1L);
   }
 
   @Test
   @DisplayName("현재 사용자의 프로필을 조회하고 소셜 계정 식별자는 노출하지 않는다")
   void getsMyProfileWithoutProviderUserId() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
 
     mockMvc.perform(get("/api/v1/users/me").with(jwt().jwt(jwt -> jwt.subject("1"))))
@@ -73,7 +75,7 @@ class UserControllerTest {
   @Test
   @DisplayName("사용 가능한 닉네임을 정규화하여 반환한다")
   void getsNicknameAvailability() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.isNicknameAvailable(user, "new-route")).thenReturn(true);
 
@@ -88,7 +90,7 @@ class UserControllerTest {
   @Test
   @DisplayName("중복된 닉네임은 정상 응답에서 사용할 수 없음으로 반환한다")
   void getsUnavailableNickname() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.isNicknameAvailable(user, "duplicate")).thenReturn(false);
 
@@ -102,7 +104,7 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 닉네임은 사용할 수 있는 것으로 반환한다")
   void getsCurrentNicknameAsAvailable() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.isNicknameAvailable(user, "route")).thenReturn(true);
 
@@ -117,7 +119,7 @@ class UserControllerTest {
   @Test
   @DisplayName("유효하지 않은 닉네임 조회는 사용자 입력 오류를 반환한다")
   void rejectsInvalidNicknameAvailability() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
 
     mockMvc.perform(get("/api/v1/users/nickname-availability")
@@ -130,10 +132,9 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 사용자의 닉네임을 수정하고 변경된 프로필을 반환한다")
   void updatesMyProfile() throws Exception {
-    User updated = User.create(
-        "new-route", AuthProvider.GOOGLE, "private-google-sub", "user@example.com");
-    ReflectionTestUtils.setField(updated, "id", 1L);
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    User updated = UserFixture.activeUserWithId(1L);
+    updated.updateNickname("new-route");
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.updateNickname(1L, "new-route")).thenReturn(updated);
 
@@ -149,7 +150,7 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 닉네임으로 수정하면 동일한 프로필을 반환한다")
   void updatesSameNicknameIdempotently() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.updateNickname(1L, "route")).thenReturn(user);
 
@@ -164,7 +165,7 @@ class UserControllerTest {
   @Test
   @DisplayName("유효하지 않은 닉네임으로 프로필을 수정할 수 없다")
   void rejectsInvalidNicknameUpdate() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.updateNickname(1L, "   "))
         .thenThrow(new BusinessException(UserErrorCode.USER_INVALID_NICKNAME));
@@ -180,7 +181,7 @@ class UserControllerTest {
   @Test
   @DisplayName("닉네임 동시 변경 충돌은 409 응답을 반환한다")
   void returnsConflictForDuplicateNickname() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
     when(userService.updateNickname(1L, "duplicate"))
         .thenThrow(new BusinessException(UserErrorCode.USER_DUPLICATE_NICKNAME));
@@ -196,7 +197,7 @@ class UserControllerTest {
   @Test
   @DisplayName("정지 사용자는 프로필을 조회할 수 없다")
   void rejectsSuspendedUser() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenThrow(new BusinessException(UserErrorCode.USER_SUSPENDED));
 
     mockMvc.perform(get("/api/v1/users/me").with(jwt().jwt(jwt -> jwt.subject("1"))))
@@ -207,7 +208,7 @@ class UserControllerTest {
   @Test
   @DisplayName("탈퇴 사용자는 프로필을 수정할 수 없다")
   void rejectsWithdrawnUserUpdate() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenThrow(new BusinessException(UserErrorCode.USER_WITHDRAWN));
 
     mockMvc.perform(patch("/api/v1/users/me")
@@ -229,8 +230,9 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 사용자를 회원 탈퇴 처리한다")
   void withdrawsCurrentUser() throws Exception {
-    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+    when(currentUserResolver.getCurrentUser(org.mockito.ArgumentMatchers.any()))
         .thenReturn(user);
+    when(sessionCookieClearer.clear()).thenReturn(CLEARED_COOKIE_HEADER);
 
     mockMvc.perform(delete("/api/v1/users/me")
             .with(jwt().jwt(jwt -> jwt.subject("1"))))

@@ -41,7 +41,8 @@ public class GoogleLoginService {
         idTokenVerifier.verifyAndExtractUserInfo(tokens.idToken());
     UserService.SocialLoginResult result = userService.findOrCreateSocialUser(AuthProvider.GOOGLE,
         googleUser.subject(), googleUser.email());
-    LoginDto.Response response = accessTokenService.issue(result.user(), result.newUser());
+    LoginDto.Response response =
+        accessTokenService.issue(AuthPrincipal.from(result.user()), result.newUser());
     RefreshTokenService.IssuedToken refreshToken = refreshTokenService.issue(result.user().getId());
     return new LoginResult(response, refreshToken);
   }
