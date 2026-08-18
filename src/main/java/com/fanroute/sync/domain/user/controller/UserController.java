@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.user.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fanroute.sync.domain.auth.controller.RefreshTokenCookie;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.domain.auth.service.CurrentUserService;
 import com.fanroute.sync.domain.user.dto.UserProfileDto;
@@ -35,8 +37,11 @@ public class UserController {
 
   private final CurrentUserService currentUserService;
   private final UserService userService;
+  private final RefreshTokenCookie refreshTokenCookie;
 
-  @Operation(summary = "회원 탈퇴", description = "현재 사용자를 탈퇴 처리하고 보유한 모든 Refresh Token을 폐기합니다.")
+  @Operation(
+      summary = "회원 탈퇴",
+      description = "현재 사용자를 탈퇴 처리하고 Refresh Token을 폐기한 뒤 Cookie를 삭제합니다.")
   @ApiResponses({
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "200", description = "회원 탈퇴 성공", useReturnTypeSchema = true)
@@ -50,7 +55,9 @@ public class UserController {
       @AuthenticationPrincipal Jwt jwt) {
     User currentUser = currentUserService.getCurrentUser(jwt);
     userService.withdrawUser(currentUser.getId());
-    return ApiResponse.<Void>ok(null).toResponseEntity();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.clear().toString())
+        .body(ApiResponse.ok());
   }
 
   @Operation(summary = "내 프로필 조회")

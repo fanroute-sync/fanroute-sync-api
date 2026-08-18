@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.user.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -7,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.fanroute.sync.domain.auth.controller.RefreshTokenCookie;
 import com.fanroute.sync.domain.auth.service.CurrentUserService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
@@ -30,7 +33,7 @@ import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
 
 @WebMvcTest(UserController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, RefreshTokenCookie.class})
 class UserControllerTest {
 
   @Autowired
@@ -232,7 +235,9 @@ class UserControllerTest {
     mockMvc.perform(delete("/api/v1/users/me")
             .with(jwt().jwt(jwt -> jwt.subject("1"))))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true));
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
+        .andExpect(header().string("Set-Cookie", containsString("Path=/api/v1/auth")));
 
     verify(userService).withdrawUser(1L);
   }
