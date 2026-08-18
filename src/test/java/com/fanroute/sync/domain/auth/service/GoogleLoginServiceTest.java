@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.MultiValueMap;
 
 import com.fanroute.sync.domain.auth.client.GoogleTokenClient;
@@ -42,6 +43,8 @@ class GoogleLoginServiceTest {
   private UserService userService;
   @Mock
   private AccessTokenService accessTokenService;
+  @Mock
+  private RefreshTokenService refreshTokenService;
 
   private GoogleLoginService googleLoginService;
 
@@ -57,9 +60,11 @@ class GoogleLoginServiceTest {
         "https://api.test.fanroute.com",
         "dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
         java.time.Duration.ofHours(1));
-    AuthProperties properties = new AuthProperties(google, jwt);
+    AuthProperties properties = new AuthProperties(
+        google, jwt, new AuthProperties.Refresh(java.time.Duration.ofDays(14)));
     googleLoginService = new GoogleLoginService(
-        googleTokenClient, idTokenVerifier, userService, accessTokenService, properties);
+        googleTokenClient, idTokenVerifier, userService, accessTokenService, refreshTokenService,
+        properties);
   }
 
   @Test
@@ -69,20 +74,30 @@ class GoogleLoginServiceTest {
         "id-token", 3600,
         "Bearer");
     User user = User.create("route", AuthProvider.GOOGLE, "google-sub");
-    LoginDto.Response expected = LoginDto.Response.of("service-token", 1L, false, 3600);
+    ReflectionTestUtils.setField(user, "id", 1L);
+    LoginDto.Response accessToken = LoginDto.Response.of("service-token", 1L, false, 3600);
     when(googleTokenClient.exchangeToken(any())).thenReturn(googleTokens);
-    when(idTokenVerifier.verifyAndExtractSubject("id-token")).thenReturn("google-sub");
-    when(userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-sub"))
+    when(idTokenVerifier.verifyAndExtractUserInfo("id-token"))
+        .thenReturn(new GoogleIdTokenVerifier.GoogleUserInfo(
+            "google-sub", "user@example.com"));
+    when(userService.findOrCreateSocialUser(
+        AuthProvider.GOOGLE, "google-sub", "user@example.com"))
         .thenReturn(new UserService.SocialLoginResult(user, false));
-    when(accessTokenService.issue(user, false)).thenReturn(expected);
+    when(accessTokenService.issue(user, false)).thenReturn(accessToken);
+    when(refreshTokenService.issue(1L))
+        .thenReturn(new RefreshTokenService.IssuedToken("refresh-token", 1209600));
 
-    LoginDto.Response response = googleLoginService.login("authorization-code");
+    GoogleLoginService.LoginResult result = googleLoginService.login("authorization-code");
 
-    assertThat(response).isEqualTo(expected);
+    assertThat(result.response()).isEqualTo(accessToken);
+    assertThat(result.refreshToken().value()).isEqualTo("refresh-token");
+    assertThat(result.refreshToken().expiresIn()).isEqualTo(1209600);
     @SuppressWarnings("unchecked")
     ArgumentCaptor<MultiValueMap<String, String>> formCaptor = ArgumentCaptor.forClass(
         MultiValueMap.class);
     verify(googleTokenClient).exchangeToken(formCaptor.capture());
+    verify(userService).findOrCreateSocialUser(
+        AuthProvider.GOOGLE, "google-sub", "user@example.com");
     assertThat(formCaptor.getValue().toSingleValueMap()).containsAllEntriesOf(Map.of(
         "code", "authorization-code",
         "client_id", "client-id",

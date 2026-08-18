@@ -59,6 +59,6 @@ class AccessTokenServiceTest {
         "https://api.test.fanroute.com",
         "dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
         Duration.ofHours(1));
-    return new AuthProperties(google, jwt);
+    return new AuthProperties(google, jwt, new AuthProperties.Refresh(Duration.ofDays(14)));
   }
 }

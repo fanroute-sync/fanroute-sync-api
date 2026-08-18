@@ -10,6 +10,56 @@ spring:
     multipart:
       max-file-size: 10MB # 파일 업로드 요청 시, 하나의 파일 크기를 10MB로 제한
       max-request-size: 100MB # 파일 업로드 요청 시, 모든 파일의 크기 합을 100MB로 제한
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: FanRouteHikariPool
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:0}
+
   jpa:
+    open-in-view: false
     properties:
       "[hibernate.jdbc.time_zone]": UTC
+
+auth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: ${GOOGLE_REDIRECT_URI}
+    issuer: https://accounts.google.com
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+  jwt:
+    issuer: fanroute-sync-api
+    secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30m}
+  refresh:
+    token-ttl: ${AUTH_REFRESH_TOKEN_TTL:P14D}
+    cookie:
+      secure: ${AUTH_REFRESH_COOKIE_SECURE:true}
+      same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
+
+external-api:
+  http:
+    connect-timeout: ${EXTERNAL_API_CONNECT_TIMEOUT:3s}
+    read-timeout: ${EXTERNAL_API_READ_TIMEOUT:5s}
+  services:
+    google:
+      base-url: ${GOOGLE_API_BASE_URL:https://oauth2.googleapis.com}
+    tour:
+      base-url: ${TOUR_API_BASE_URL:https://apis.data.go.kr}
+
+springdoc:
+  swagger-ui:
+    with-credentials: true

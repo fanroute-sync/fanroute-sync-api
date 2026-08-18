@@ -2,6 +2,7 @@ package com.fanroute.sync.domain.auth.config;
 
 import java.net.URI;
 import java.time.Clock;
+import java.security.SecureRandom;
 import java.util.Base64;
 
 import javax.crypto.SecretKey;
@@ -78,6 +79,11 @@ public class AuthConfig {
   @Bean
   public Clock clock() {
     return Clock.systemUTC();
+  }
+
+  @Bean
+  public SecureRandom secureRandom() {
+    return new SecureRandom();
   }
 
   // 정상 서명된 Google 토큰이라도 다른 애플리케이션용 토큰이면 로그인에 사용할 수 없습니다.

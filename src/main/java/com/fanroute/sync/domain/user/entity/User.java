@@ -31,13 +31,14 @@ import lombok.NoArgsConstructor;
     // 소셜 계정 하나가 여러 사용자와 연결되는 것을 방지
     @UniqueConstraint(name = "uk_users_auth_provider_provider_user_id", columnNames = {
         "auth_provider",
-        "provider_user_id" }),
+        "provider_user_id"}),
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends SoftDeleteEntity {
 
   private static final int MAX_NICKNAME_LENGTH = 30;
   private static final int MAX_PROVIDER_USER_ID_LENGTH = 255;
+  private static final int MAX_EMAIL_LENGTH = 320;
   private static final String WITHDRAWN_NICKNAME_PREFIX = "withdrawn_";
 
   @Id
@@ -54,17 +55,22 @@ public class User extends SoftDeleteEntity {
   @Column(name = "provider_user_id", nullable = false, length = MAX_PROVIDER_USER_ID_LENGTH)
   private String providerUserId; // 소셜 제공자가 발급한 고유 사용자 ID
 
+  @Column(length = MAX_EMAIL_LENGTH)
+  private String email;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private UserStatus status; // 회원의 현재 이용 상태
 
-  private User(String nickname, AuthProvider authProvider, String providerUserId) {
-    this.nickname = validateUserNickname(nickname);
+  private User(String nickname, AuthProvider authProvider, String providerUserId, String email) {
+    this.nickname = normalizeNickname(nickname);
 
     this.authProvider = requireNonNull(authProvider, UserErrorCode.USER_INVALID_AUTH_PROVIDER);
 
     this.providerUserId = normalizeRequired(providerUserId, MAX_PROVIDER_USER_ID_LENGTH,
         UserErrorCode.USER_INVALID_PROVIDER_USER_ID);
+
+    this.email = email;
 
     this.status = UserStatus.ACTIVE;
   }
@@ -72,12 +78,16 @@ public class User extends SoftDeleteEntity {
   /**
    * 신규 사용자 생성
    * <p>
-   * 닉네임은 반드시 서비스 계층에서 {@code NicknameGenerator}로 생성해야 함 엔티티 계층에서 생성 시, 테스트 및 중복시
-   * 재시도가 어려움
+   * 닉네임은 반드시 서비스 계층에서 {@code NicknameGenerator}로 생성해야 함 엔티티 계층에서 생성 시, 테스트 및 중복시 재시도가 어려움
    * </p>
    */
   public static User create(String nickname, AuthProvider authProvider, String providerUserId) {
-    return new User(nickname, authProvider, providerUserId);
+    return new User(nickname, authProvider, providerUserId, null);
+  }
+
+  public static User create(
+      String nickname, AuthProvider authProvider, String providerUserId, String email) {
+    return new User(nickname, authProvider, providerUserId, email);
   }
 
   /**
@@ -88,7 +98,7 @@ public class User extends SoftDeleteEntity {
    */
   public void updateNickname(String newNickname) {
     ensureNotWithdrawn(UserErrorCode.USER_WITHDRAWN);
-    this.nickname = validateUserNickname(newNickname);
+    this.nickname = normalizeNickname(newNickname);
   }
 
   /**
@@ -114,8 +124,7 @@ public class User extends SoftDeleteEntity {
   /**
    * 회원을 탈퇴 상태로 변경하고 논리 삭제 시각을 기록합니다.
    * <p>
-   * 기존 닉네임은 {@code withdrawn_{userId}} 형식의 tombstone 값으로 변경하여 다른 사용자가 기존 닉네임을 다시
-   * 사용할 수 있게 합니다.
+   * 기존 닉네임은 {@code withdrawn_{userId}} 형식의 tombstone 값으로 변경하여 다른 사용자가 기존 닉네임을 다시 사용할 수 있게 합니다.
    * </p>
    *
    * @param withdrawnAt 탈퇴 처리 시각
@@ -143,7 +152,7 @@ public class User extends SoftDeleteEntity {
    * 시스템 tombstone 값과 충돌하지 않도록 {@code withdrawn_}로 시작하는 닉네임은 허용하지 않습니다.
    * </p>
    */
-  private static String validateUserNickname(String nickname) {
+  public static String normalizeNickname(String nickname) {
     String normalized = normalizeRequired(nickname, MAX_NICKNAME_LENGTH,
         UserErrorCode.USER_INVALID_NICKNAME);
     if (normalized.startsWith(WITHDRAWN_NICKNAME_PREFIX)) {

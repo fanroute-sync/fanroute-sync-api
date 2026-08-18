@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
@@ -24,16 +25,22 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final NicknameGenerator nicknameGenerator;
+  private final RefreshTokenService refreshTokenService;
 
   /**
    * 신규 사용자를 생성합니다.
    */
   @Transactional
   public User createUser(AuthProvider authProvider, String providerUserId) {
+    return createUser(authProvider, providerUserId, null);
+  }
+
+  @Transactional
+  public User createUser(AuthProvider authProvider, String providerUserId, String email) {
     validateSocialAccountNotDuplicated(authProvider, providerUserId);
 
     String nickname = generateUniqueNickname();
-    User user = User.create(nickname, authProvider, providerUserId);
+    User user = User.create(nickname, authProvider, providerUserId, email);
 
     try {
       // 즉시 flush로 해당 트랜잭션에서 예외
@@ -68,12 +75,19 @@ public class UserService {
   @Transactional
   public SocialLoginResult findOrCreateSocialUser(
       AuthProvider authProvider, String providerUserId) {
+    return findOrCreateSocialUser(authProvider, providerUserId, null);
+  }
+
+  @Transactional
+  public SocialLoginResult findOrCreateSocialUser(
+      AuthProvider authProvider, String providerUserId, String email) {
     return userRepository.findByAuthProviderAndProviderUserId(authProvider, providerUserId)
         .map(user -> {
           validateAccessible(user);
           return new SocialLoginResult(user, false);
         })
-        .orElseGet(() -> new SocialLoginResult(createUser(authProvider, providerUserId), true));
+        .orElseGet(
+            () -> new SocialLoginResult(createUser(authProvider, providerUserId, email), true));
   }
 
   public record SocialLoginResult(User user, boolean newUser) {
@@ -98,10 +112,10 @@ public class UserService {
    */
   @Transactional
   public User updateNickname(Long userId, String newNickname) {
-    User user = findUser(userId);
-    String normalized = newNickname == null ? null : newNickname.trim();
+    User user = getAccessibleUser(userId);
+    String normalized = User.normalizeNickname(newNickname);
 
-    if (normalized != null && normalized.equals(user.getNickname())) {
+    if (normalized.equals(user.getNickname())) {
       return user;
     }
 
@@ -110,13 +124,24 @@ public class UserService {
     }
 
     try {
-      user.updateNickname(newNickname);
+      user.updateNickname(normalized);
       userRepository.flush();
     } catch (DataIntegrityViolationException e) {
       throw new BusinessException(UserErrorCode.USER_DUPLICATE_NICKNAME);
     }
 
     return user;
+  }
+
+  /**
+   * 현재 사용자를 기준으로 정규화된 닉네임의 사용 가능 여부를 확인합니다.
+   */
+  public boolean isNicknameAvailable(User currentUser, String nickname) {
+    String normalized = User.normalizeNickname(nickname);
+    if (normalized.equals(currentUser.getNickname())) {
+      return true;
+    }
+    return !userRepository.existsByNickname(normalized);
   }
 
   /**
@@ -140,7 +165,8 @@ public class UserService {
    */
   @Transactional
   public void withdrawUser(Long userId) {
-    findUser(userId).withdraw(Instant.now());
+    getAccessibleUser(userId).withdraw(Instant.now());
+    refreshTokenService.revokeAll(userId);
   }
 
   private String generateUniqueNickname() {

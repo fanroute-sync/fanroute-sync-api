@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
@@ -38,23 +39,29 @@ class UserServiceTest {
   @Mock
   private NicknameGenerator nicknameGenerator;
 
+  @Mock
+  private RefreshTokenService refreshTokenService;
+
   private UserService userService;
 
   @BeforeEach
   void setUp() {
-    userService = new UserService(userRepository, nicknameGenerator);
+    userService = new UserService(userRepository, nicknameGenerator, refreshTokenService);
   }
 
   @Test
   @DisplayName("중복되지 않은 소셜 계정과 닉네임으로 사용자를 생성한다")
   void createUser() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = User.create(
+        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
-    User created = userService.createUser(AuthProvider.GOOGLE, "google-1");
+    User created = userService.createUser(
+        AuthProvider.GOOGLE, "google-1", "user@example.com");
 
     assertSame(user, created);
+    assertEquals("user@example.com", created.getEmail());
     verify(userRepository)
         .existsByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1");
     verify(userRepository).existsByNickname("route");
@@ -152,6 +159,59 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("탈퇴 사용자는 접근할 수 없다")
+  void cannotAccessWithdrawnUser() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    ReflectionTestUtils.setField(user, "id", 1L);
+    user.withdraw(java.time.Instant.now());
+    when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+    BusinessException exception =
+        assertThrows(BusinessException.class, () -> userService.getAccessibleUser(1L));
+
+    assertEquals(UserErrorCode.USER_WITHDRAWN, exception.getErrorCode());
+  }
+
+  @Test
+  @DisplayName("사용 중이지 않은 닉네임은 사용할 수 있다")
+  void nicknameIsAvailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    assertTrue(userService.isNicknameAvailable(user, " new-route "));
+    verify(userRepository).existsByNickname("new-route");
+  }
+
+  @Test
+  @DisplayName("다른 사용자가 사용 중인 닉네임은 사용할 수 없다")
+  void nicknameIsUnavailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    when(userRepository.existsByNickname("duplicate")).thenReturn(true);
+
+    assertFalse(userService.isNicknameAvailable(user, "duplicate"));
+  }
+
+  @Test
+  @DisplayName("현재 닉네임은 저장소 조회 없이 사용할 수 있다")
+  void currentNicknameIsAvailable() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    assertTrue(userService.isNicknameAvailable(user, " route "));
+    verify(userRepository, never()).existsByNickname(any());
+  }
+
+  @Test
+  @DisplayName("유효하지 않은 닉네임은 사용 가능 여부를 확인할 수 없다")
+  void invalidNicknameCannotBeChecked() {
+    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+
+    BusinessException exception = assertThrows(
+        BusinessException.class,
+        () -> userService.isNicknameAvailable(user, "   "));
+
+    assertEquals(UserErrorCode.USER_INVALID_NICKNAME, exception.getErrorCode());
+  }
+
+  @Test
   @DisplayName("동일한 닉네임으로 변경하면 저장소를 조회하지 않는다")
   void keepSameNickname() {
     User user = User.create("route", AuthProvider.GOOGLE, "google-1");
@@ -218,6 +278,7 @@ class UserServiceTest {
     assertEquals(UserStatus.WITHDRAWN, user.getStatus());
     assertTrue(user.isDeleted());
     assertEquals("withdrawn_1", user.getNickname());
+    verify(refreshTokenService).revokeAll(1L);
   }
 
   @Test
@@ -244,19 +305,22 @@ class UserServiceTest {
   }
 
   @Test
-  @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임으로 생성한다")
+  @DisplayName("최초 소셜 로그인 사용자는 기본 닉네임과 이메일로 생성한다")
   void createsUserOnFirstSocialLogin() {
-    User user = User.create("route", AuthProvider.GOOGLE, "google-1");
+    User user = User.create(
+        "route", AuthProvider.GOOGLE, "google-1", "user@example.com");
     when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
         .thenReturn(Optional.empty());
     when(nicknameGenerator.generate()).thenReturn("route");
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
     UserService.SocialLoginResult result =
-        userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1");
+        userService.findOrCreateSocialUser(
+            AuthProvider.GOOGLE, "google-1", "user@example.com");
 
     assertSame(user, result.user());
     assertTrue(result.newUser());
+    assertEquals("user@example.com", result.user().getEmail());
   }
 
   @Test

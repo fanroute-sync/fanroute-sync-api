@@ -26,15 +26,37 @@ class GoogleIdTokenVerifierTest {
   private JwtDecoder decoder;
 
   @Test
-  @DisplayName("검증된 Google ID Token에서 사용자 식별자를 추출한다")
-  void extractsSubject() {
+  @DisplayName("검증된 Google ID Token에서 사용자 식별자와 이메일을 추출한다")
+  void extractsUserInfo() {
     Jwt jwt = new Jwt("token", Instant.now(), Instant.now().plusSeconds(60),
-        Map.of("alg", "RS256"), Map.of("sub", "google-sub"));
+        Map.of("alg", "RS256"), Map.of(
+            "sub", "google-sub",
+            "email", "user@example.com",
+            "email_verified", true));
     when(decoder.decode("token")).thenReturn(jwt);
 
-    String subject = new GoogleIdTokenVerifier(decoder).verifyAndExtractSubject("token");
+    GoogleIdTokenVerifier.GoogleUserInfo userInfo =
+        new GoogleIdTokenVerifier(decoder).verifyAndExtractUserInfo("token");
 
-    assertThat(subject).isEqualTo("google-sub");
+    assertThat(userInfo.subject()).isEqualTo("google-sub");
+    assertThat(userInfo.email()).isEqualTo("user@example.com");
+  }
+
+  @Test
+  @DisplayName("Google 이메일이 검증되지 않았으면 인증에 실패한다")
+  void rejectsUnverifiedEmail() {
+    Jwt jwt = new Jwt("token", Instant.now(), Instant.now().plusSeconds(60),
+        Map.of("alg", "RS256"), Map.of(
+            "sub", "google-sub",
+            "email", "user@example.com",
+            "email_verified", false));
+    when(decoder.decode("token")).thenReturn(jwt);
+
+    assertThatThrownBy(() -> new GoogleIdTokenVerifier(decoder)
+        .verifyAndExtractUserInfo("token"))
+        .isInstanceOfSatisfying(BusinessException.class,
+            exception -> assertThat(exception.getErrorCode())
+                .isEqualTo(AuthErrorCode.GOOGLE_ID_TOKEN_INVALID));
   }
 
   @Test
@@ -43,7 +65,7 @@ class GoogleIdTokenVerifierTest {
     when(decoder.decode("invalid")).thenThrow(new JwtException("invalid signature"));
 
     assertThatThrownBy(() -> new GoogleIdTokenVerifier(decoder)
-        .verifyAndExtractSubject("invalid"))
+        .verifyAndExtractUserInfo("invalid"))
         .isInstanceOfSatisfying(BusinessException.class,
             exception -> assertThat(exception.getErrorCode())
                 .isEqualTo(AuthErrorCode.GOOGLE_ID_TOKEN_INVALID));

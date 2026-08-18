@@ -29,17 +29,26 @@ public class GoogleLoginService {
   private final GoogleIdTokenVerifier idTokenVerifier;
   private final UserService userService;
   private final AccessTokenService accessTokenService;
+  private final RefreshTokenService refreshTokenService;
   private final AuthProperties properties;
 
   /**
    * Google 인가 코드로 사용자를 로그인하고 서비스 Access Token을 반환합니다.
    */
-  public LoginDto.Response login(String authorizationCode) {
+  public LoginResult login(String authorizationCode) {
     GoogleOAuthDto.TokenResponse tokens = exchangeToken(authorizationCode);
-    String providerUserId = idTokenVerifier.verifyAndExtractSubject(tokens.idToken());
+    GoogleIdTokenVerifier.GoogleUserInfo googleUser =
+        idTokenVerifier.verifyAndExtractUserInfo(tokens.idToken());
     UserService.SocialLoginResult result = userService.findOrCreateSocialUser(AuthProvider.GOOGLE,
-        providerUserId);
-    return accessTokenService.issue(result.user(), result.newUser());
+        googleUser.subject(), googleUser.email());
+    LoginDto.Response response = accessTokenService.issue(result.user(), result.newUser());
+    RefreshTokenService.IssuedToken refreshToken = refreshTokenService.issue(result.user().getId());
+    return new LoginResult(response, refreshToken);
+  }
+
+  public record LoginResult(
+      LoginDto.Response response, RefreshTokenService.IssuedToken refreshToken) {
+
   }
 
   private GoogleOAuthDto.TokenResponse exchangeToken(String code) {

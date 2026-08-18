@@ -1,5 +1,7 @@
 package com.fanroute.sync.global.common.exception;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -13,7 +15,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.response.ErrorCode;
-import com.fanroute.sync.global.common.response.ErrorResponse;
+import com.fanroute.sync.global.common.response.ValidationError;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +25,7 @@ public class GlobalExceptionHandler {
 
   // 1. @RequestBody JSON 유효성 실패 (@Valid)
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<ErrorResponse>> handleValidation(
+  public ResponseEntity<ApiResponse<List<ValidationError>>> handleValidation(
       MethodArgumentNotValidException e) {
     log.warn(
         "Validation failed for fields: {}",
@@ -31,9 +33,11 @@ public class GlobalExceptionHandler {
             .map(fieldError -> fieldError.getField())
             .distinct()
             .toList());
-    ErrorResponse errorResponse = ErrorResponse.of(e.getBindingResult());
+    List<ValidationError> errors = e.getBindingResult().getAllErrors().stream()
+        .map(ValidationError::from)
+        .toList();
 
-    return ApiResponse.fail(ErrorCode.INVALID_PARAMETER, errorResponse).toResponseEntity();
+    return ApiResponse.fail(ErrorCode.INVALID_PARAMETER, errors).toResponseEntity();
   }
 
   // 2. 요청 형식 예외
