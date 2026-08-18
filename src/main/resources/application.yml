@@ -59,6 +59,13 @@ external-api:
       base-url: ${GOOGLE_API_BASE_URL:https://oauth2.googleapis.com}
     tour:
       base-url: ${TOUR_API_BASE_URL:https://apis.data.go.kr}
+    kopis:
+      base-url: ${KOPIS_API_BASE_URL:http://www.kopis.or.kr/openApi/restful}
+
+kopis:
+  service-key: ${KOPIS_SERVICE_KEY}
+  # KOPIS 지역코드(signgucode) 상위 코드. 정확한 부산 코드값은 KOPIS 공통코드 문서로 확인 필요
+  region-code: ${KOPIS_REGION_CODE:26}
 
 springdoc:
   swagger-ui:
