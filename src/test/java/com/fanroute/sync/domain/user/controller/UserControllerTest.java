@@ -1,8 +1,10 @@
 package com.fanroute.sync.domain.user.controller;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -219,5 +221,19 @@ class UserControllerTest {
     mockMvc.perform(get("/api/v1/users/me"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+  }
+
+  @Test
+  @DisplayName("현재 사용자를 회원 탈퇴 처리한다")
+  void withdrawsCurrentUser() throws Exception {
+    when(currentUserService.getCurrentUser(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(user);
+
+    mockMvc.perform(delete("/api/v1/users/me")
+            .with(jwt().jwt(jwt -> jwt.subject("1"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true));
+
+    verify(userService).withdrawUser(1L);
   }
 }

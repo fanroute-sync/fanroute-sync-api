@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
@@ -38,11 +39,14 @@ class UserServiceTest {
   @Mock
   private NicknameGenerator nicknameGenerator;
 
+  @Mock
+  private RefreshTokenService refreshTokenService;
+
   private UserService userService;
 
   @BeforeEach
   void setUp() {
-    userService = new UserService(userRepository, nicknameGenerator);
+    userService = new UserService(userRepository, nicknameGenerator, refreshTokenService);
   }
 
   @Test
@@ -274,6 +278,7 @@ class UserServiceTest {
     assertEquals(UserStatus.WITHDRAWN, user.getStatus());
     assertTrue(user.isDeleted());
     assertEquals("withdrawn_1", user.getNickname());
+    verify(refreshTokenService).revokeAll(1L);
   }
 
   @Test

@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
@@ -24,6 +25,7 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final NicknameGenerator nicknameGenerator;
+  private final RefreshTokenService refreshTokenService;
 
   /**
    * 신규 사용자를 생성합니다.
@@ -163,7 +165,8 @@ public class UserService {
    */
   @Transactional
   public void withdrawUser(Long userId) {
-    findUser(userId).withdraw(Instant.now());
+    getAccessibleUser(userId).withdraw(Instant.now());
+    refreshTokenService.revokeAll(userId);
   }
 
   private String generateUniqueNickname() {
