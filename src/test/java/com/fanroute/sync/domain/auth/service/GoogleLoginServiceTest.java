@@ -76,7 +76,6 @@ class GoogleLoginServiceTest {
     User user = User.create("route", AuthProvider.GOOGLE, "google-sub");
     ReflectionTestUtils.setField(user, "id", 1L);
     LoginDto.Response accessToken = LoginDto.Response.of("service-token", 1L, false, 3600);
-    LoginDto.Response expected = accessToken.withRefreshToken("refresh-token", 1209600);
     when(googleTokenClient.exchangeToken(any())).thenReturn(googleTokens);
     when(idTokenVerifier.verifyAndExtractUserInfo("id-token"))
         .thenReturn(new GoogleIdTokenVerifier.GoogleUserInfo(
@@ -88,9 +87,11 @@ class GoogleLoginServiceTest {
     when(refreshTokenService.issue(1L))
         .thenReturn(new RefreshTokenService.IssuedToken("refresh-token", 1209600));
 
-    LoginDto.Response response = googleLoginService.login("authorization-code");
+    GoogleLoginService.LoginResult result = googleLoginService.login("authorization-code");
 
-    assertThat(response).isEqualTo(expected);
+    assertThat(result.response()).isEqualTo(accessToken);
+    assertThat(result.refreshToken().value()).isEqualTo("refresh-token");
+    assertThat(result.refreshToken().expiresIn()).isEqualTo(1209600);
     @SuppressWarnings("unchecked")
     ArgumentCaptor<MultiValueMap<String, String>> formCaptor = ArgumentCaptor.forClass(
         MultiValueMap.class);

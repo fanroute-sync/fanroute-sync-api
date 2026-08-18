@@ -16,14 +16,19 @@ public class TokenRefreshService {
   private final AccessTokenService accessTokenService;
   private final UserService userService;
 
-  public RefreshTokenDto.Response refresh(String refreshToken) {
+  public RefreshResult refresh(String refreshToken) {
     Long userId = refreshTokenService.findUserId(refreshToken);
     User user = userService.getAccessibleUser(userId);
     AccessTokenService.IssuedToken newAccessToken = accessTokenService.issue(user);
     RefreshTokenService.IssuedToken newRefreshToken =
         refreshTokenService.rotate(refreshToken, userId);
-    return new RefreshTokenDto.Response(
-        newAccessToken.value(), newRefreshToken.value(), "Bearer",
-        newAccessToken.expiresIn(), newRefreshToken.expiresIn());
+    RefreshTokenDto.Response response = new RefreshTokenDto.Response(
+        newAccessToken.value(), "Bearer", newAccessToken.expiresIn());
+    return new RefreshResult(response, newRefreshToken);
+  }
+
+  public record RefreshResult(
+      RefreshTokenDto.Response response, RefreshTokenService.IssuedToken refreshToken) {
+
   }
 }

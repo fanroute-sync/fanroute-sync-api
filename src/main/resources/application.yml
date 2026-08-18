@@ -43,9 +43,12 @@ auth:
   jwt:
     issuer: fanroute-sync-api
     secret: ${JWT_SECRET}
-    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:1h}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30m}
   refresh:
     token-ttl: ${AUTH_REFRESH_TOKEN_TTL:P14D}
+    cookie:
+      secure: ${AUTH_REFRESH_COOKIE_SECURE:true}
+      same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
 
 external-api:
   http:
@@ -56,3 +59,7 @@ external-api:
       base-url: ${GOOGLE_API_BASE_URL:https://oauth2.googleapis.com}
     tour:
       base-url: ${TOUR_API_BASE_URL:https://apis.data.go.kr}
+
+springdoc:
+  swagger-ui:
+    with-credentials: true

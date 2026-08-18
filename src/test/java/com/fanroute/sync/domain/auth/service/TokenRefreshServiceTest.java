@@ -46,10 +46,10 @@ class TokenRefreshServiceTest {
     when(accessTokenService.issue(user))
         .thenReturn(new AccessTokenService.IssuedToken("new-access-token", 3600));
 
-    RefreshTokenDto.Response response = service.refresh("old-token");
+    TokenRefreshService.RefreshResult result = service.refresh("old-token");
 
-    assertThat(response.accessToken()).isEqualTo("new-access-token");
-    assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    assertThat(result.response().accessToken()).isEqualTo("new-access-token");
+    assertThat(result.refreshToken().value()).isEqualTo("new-refresh-token");
     InOrder order = inOrder(refreshTokenService, userService, accessTokenService);
     order.verify(refreshTokenService).findUserId("old-token");
     order.verify(userService).getAccessibleUser(1L);

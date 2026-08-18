@@ -1,9 +1,12 @@
 package com.fanroute.sync.domain.auth.controller;
 
-import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -17,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.fanroute.sync.domain.auth.config.RefreshTokenCsrfFilter;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.service.GoogleLoginService;
@@ -24,8 +28,10 @@ import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.auth.service.TokenRefreshService;
 import com.fanroute.sync.global.config.SecurityConfig;
 
+import jakarta.servlet.http.Cookie;
+
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, RefreshTokenCookie.class})
 class AuthControllerTest {
 
   @Autowired
@@ -40,79 +46,98 @@ class AuthControllerTest {
   private JwtDecoder jwtDecoder;
 
   @Test
-  @DisplayName("인증 없이 Google 로그인 API에 접근해 Access Token을 받는다")
-  void logsInWithoutAuthentication() throws Exception {
+  @DisplayName("Google 로그인은 Access Token을 응답하고 Refresh Token Cookie를 발급한다")
+  void logsInWithRefreshTokenCookie() throws Exception {
     when(googleLoginService.login("authorization-code"))
-        .thenReturn(new LoginDto.Response(
-            "access-token", "refresh-token", "Bearer", 3600, 1209600, 1L, true));
+        .thenReturn(new GoogleLoginService.LoginResult(
+            new LoginDto.Response("access-token", "Bearer", 3600, 1L, true),
+            new RefreshTokenService.IssuedToken("refresh-token", 1209600)));
 
     mockMvc.perform(post("/api/v1/auth/google")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"authorizationCode\":\"authorization-code\"}"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.accessToken").value("access-token"))
-        .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
-        .andExpect(jsonPath("$.data.refreshTokenExpiresIn").value(1209600))
-        .andExpect(jsonPath("$.data.newUser").value(true));
+        .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+        .andExpect(jsonPath("$.data.newUser").value(true))
+        .andExpect(header().string("Set-Cookie", containsString("refreshToken=refresh-token")))
+        .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+        .andExpect(header().string("Set-Cookie", containsString("Secure")))
+        .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")))
+        .andExpect(header().string("Set-Cookie", containsString("Path=/api/v1/auth")));
   }
 
   @Test
-  @DisplayName("Google 인가 코드가 비어 있으면 실패 응답을 반환한다")
+  @DisplayName("Google 인증 코드가 비어 있으면 요청을 거부한다")
   void rejectsBlankAuthorizationCode() throws Exception {
     mockMvc.perform(post("/api/v1/auth/google")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"authorizationCode\":\"\"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.success").value(false))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"))
-        .andExpect(jsonPath("$.message").value("입력값 검증에 실패했습니다."))
-        .andExpect(jsonPath("$.data[0].field").value("authorizationCode"))
-        .andExpect(jsonPath("$.data[0].message").value("인가 코드는 필수입니다."));
+        .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"));
   }
 
   @Test
-  @DisplayName("인증 없이 Refresh Token으로 토큰을 재발급한다")
-  void refreshesTokenWithoutAuthentication() throws Exception {
+  @DisplayName("Refresh Token Cookie로 토큰을 재발급하고 Cookie를 교체한다")
+  void refreshesTokenWithCookie() throws Exception {
     when(tokenRefreshService.refresh("refresh-token"))
-        .thenReturn(new RefreshTokenDto.Response(
-            "new-access-token", "new-refresh-token", "Bearer", 3600, 1209600));
+        .thenReturn(new TokenRefreshService.RefreshResult(
+            new RefreshTokenDto.Response("new-access-token", "Bearer", 3600),
+            new RefreshTokenService.IssuedToken("new-refresh-token", 1209600)));
 
     mockMvc.perform(post("/api/v1/auth/token/refresh")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"refreshToken\":\"refresh-token\"}"))
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest")
+            .cookie(new Cookie(RefreshTokenCookie.NAME, "refresh-token")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
-        .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+        .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+        .andExpect(header().string(
+            "Set-Cookie", containsString("refreshToken=new-refresh-token")));
   }
 
   @Test
-  @DisplayName("Refresh Token이 비어 있으면 실패 응답을 반환한다")
-  void rejectsBlankRefreshToken() throws Exception {
+  @DisplayName("Refresh Token Cookie가 없으면 재발급을 거부한다")
+  void rejectsMissingRefreshTokenCookie() throws Exception {
     mockMvc.perform(post("/api/v1/auth/token/refresh")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"refreshToken\":\"\"}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"))
-        .andExpect(jsonPath("$.data[0].field").value("refreshToken"))
-        .andExpect(jsonPath("$.data[0].message").value("Refresh Token은 필수입니다."));
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
+
+    verifyNoInteractions(tokenRefreshService);
   }
 
   @Test
-  @DisplayName("로그아웃 시 요청한 Refresh Token을 폐기한다")
-  void logsOutIdempotently() throws Exception {
+  @DisplayName("로그아웃은 Refresh Token을 폐기하고 Cookie를 삭제한다")
+  void logsOutAndClearsCookie() throws Exception {
     mockMvc.perform(post("/api/v1/auth/logout")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"refreshToken\":\"" + "a".repeat(43) + "\"}"))
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest")
+            .cookie(new Cookie(RefreshTokenCookie.NAME, "a".repeat(43))))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true));
+        .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
+        .andExpect(header().string("Set-Cookie", containsString("Path=/api/v1/auth")));
 
     verify(refreshTokenService).revoke("a".repeat(43));
   }
 
   @Test
-  @DisplayName("보호된 API는 JWT가 없으면 인증 실패 응답을 반환한다")
+  @DisplayName("Refresh Token Cookie가 없어도 로그아웃은 멱등하게 성공한다")
+  void logsOutWithoutCookie() throws Exception {
+    mockMvc.perform(post("/api/v1/auth/logout")
+            .header(RefreshTokenCsrfFilter.HEADER_NAME, "XMLHttpRequest"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+  }
+
+  @Test
+  @DisplayName("CSRF 방어 헤더가 없으면 Cookie 인증 요청을 거부한다")
+  void rejectsRequestWithoutCsrfHeader() throws Exception {
+    mockMvc.perform(post("/api/v1/auth/logout"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_CSRF_HEADER_REQUIRED"));
+  }
+
+  @Test
+  @DisplayName("보호 API는 인증이 필요하다")
   void protectsOtherEndpoints() throws Exception {
     mockMvc.perform(get("/api/v1/protected"))
         .andExpect(status().isUnauthorized())

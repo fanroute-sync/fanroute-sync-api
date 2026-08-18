@@ -12,11 +12,13 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.fanroute.sync.domain.auth.config.RefreshTokenCsrfFilter;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.global.common.response.ApiResponse;
 
@@ -59,6 +61,9 @@ public class SecurityConfig {
             .accessDeniedHandler(
                 (request, response, exception) -> writeError(response, objectMapper,
                     AuthErrorCode.ACCESS_DENIED)))
+        .addFilterBefore(
+            new RefreshTokenCsrfFilter(objectMapper),
+            BearerTokenAuthenticationFilter.class)
         .build();
   }
 
@@ -71,7 +76,8 @@ public class SecurityConfig {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOriginPatterns(allowedOrigins);
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("*"));
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", RefreshTokenCsrfFilter.HEADER_NAME));
     configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
