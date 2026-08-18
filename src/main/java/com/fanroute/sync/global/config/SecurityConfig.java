@@ -43,7 +43,8 @@ public class SecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(authorize -> authorize
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-            .requestMatchers("/api/v1/auth/google", "/api/v1/auth/token/refresh", "/error",
+            .requestMatchers("/api/v1/auth/google", "/api/v1/auth/token/refresh",
+                "/api/v1/auth/logout", "/error",
 //                           // TODO:: 백엔드에서 확인용으로 작성, 로그인 프론트 연결 시 삭제
                 "/api/v1/auth/google/callback"
             ).permitAll()

@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.auth.controller;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.service.GoogleLoginService;
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.auth.service.TokenRefreshService;
 import com.fanroute.sync.global.config.SecurityConfig;
 
@@ -32,6 +34,8 @@ class AuthControllerTest {
   private GoogleLoginService googleLoginService;
   @MockitoBean
   private TokenRefreshService tokenRefreshService;
+  @MockitoBean
+  private RefreshTokenService refreshTokenService;
   @MockitoBean(name = "jwtDecoder")
   private JwtDecoder jwtDecoder;
 
@@ -93,6 +97,18 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.code").value("COMMON_INVALID_PARAMETER"))
         .andExpect(jsonPath("$.data[0].field").value("refreshToken"))
         .andExpect(jsonPath("$.data[0].message").value("Refresh Token은 필수입니다."));
+  }
+
+  @Test
+  @DisplayName("로그아웃 시 요청한 Refresh Token을 폐기한다")
+  void logsOutIdempotently() throws Exception {
+    mockMvc.perform(post("/api/v1/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"refreshToken\":\"" + "a".repeat(43) + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true));
+
+    verify(refreshTokenService).revoke("a".repeat(43));
   }
 
   @Test

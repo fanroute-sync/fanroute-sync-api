@@ -12,6 +12,7 @@ import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.dto.RefreshTokenDto;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.domain.auth.service.GoogleLoginService;
+import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.auth.service.TokenRefreshService;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.global.common.response.ApiResponse;
@@ -36,6 +37,7 @@ public class AuthController {
 
   private final GoogleLoginService googleLoginService;
   private final TokenRefreshService tokenRefreshService;
+  private final RefreshTokenService refreshTokenService;
 
   /**
    * Google 로그인 성공 시 서비스 API에서 사용할 JWT Access Token을 반환합니다.
@@ -80,6 +82,20 @@ public class AuthController {
   public ResponseEntity<ApiResponse<RefreshTokenDto.Response>> refreshToken(
       @Valid @RequestBody RefreshTokenDto.Request request) {
     return ApiResponse.ok(tokenRefreshService.refresh(request.refreshToken())).toResponseEntity();
+  }
+
+  @Operation(summary = "로그아웃", description = "요청한 Refresh Token을 폐기합니다. 이미 폐기된 토큰도 성공 처리합니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "로그아웃 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ErrorCode.class, names = "INVALID_PARAMETER")
+  @ApiErrorCodeExamples(type = AuthErrorCode.class, names = "REFRESH_TOKEN_INVALID")
+  @PostMapping("/logout")
+  public ResponseEntity<ApiResponse<Void>> logout(
+      @Valid @RequestBody RefreshTokenDto.Request request) {
+    refreshTokenService.revoke(request.refreshToken());
+    return ApiResponse.<Void>ok(null).toResponseEntity();
   }
 
   /**
