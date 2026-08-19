@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,10 +28,11 @@ import com.fanroute.sync.domain.user.service.SessionCookieClearer;
 import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 import com.fanroute.sync.support.UserFixture;
 
 @WebMvcTest(UserController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, SecurityWebMvcTestSupport.class})
 class UserControllerTest {
 
   private static final String CLEARED_COOKIE_HEADER =
@@ -46,8 +46,6 @@ class UserControllerTest {
   private UserService userService;
   @MockitoBean
   private SessionCookieClearer sessionCookieClearer;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
 
   private User user;
 

@@ -3,6 +3,7 @@ package com.fanroute.sync.domain.concert.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,17 +24,15 @@ import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.fanroute.sync.global.config.AdminConfig;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(ConcertAdminController.class)
-@Import({SecurityConfig.class, AdminConfig.class})
-@TestPropertySource(properties = "admin.api-key=test-admin-key")
+@Import({SecurityConfig.class, SecurityWebMvcTestSupport.class})
 class ConcertAdminControllerTest {
 
   @Autowired
@@ -42,15 +41,15 @@ class ConcertAdminControllerTest {
   private JobOperator jobOperator;
   @MockitoBean
   private Job kopisConcertSyncJob;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
 
   @Test
-  @DisplayName("올바른 관리자 키로 요청하면 Job을 실행하고 실행 결과를 반환한다")
-  void syncsWithValidAdminKey() throws Exception {
+  @DisplayName("ADMIN 권한을 가진 사용자가 요청하면 Job을 실행하고 실행 결과를 반환한다")
+  void syncsForAdminUser() throws Exception {
     when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenReturn(completedExecution());
 
-    mockMvc.perform(post("/api/v1/admin/concerts/sync").header("X-Admin-Key", "test-admin-key"))
+    mockMvc.perform(post("/api/v1/admin/concerts/sync")
+            .with(jwt().jwt(jwt -> jwt.subject("1"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.jobName").value("kopisConcertSyncJob"))
         .andExpect(jsonPath("$.data.status").value("COMPLETED"))
@@ -64,27 +63,29 @@ class ConcertAdminControllerTest {
   void returnsConflictWhenJobAlreadyRunning() throws Exception {
     when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenThrow(new JobExecutionAlreadyRunningException("running"));
 
-    mockMvc.perform(post("/api/v1/admin/concerts/sync").header("X-Admin-Key", "test-admin-key"))
+    mockMvc.perform(post("/api/v1/admin/concerts/sync")
+            .with(jwt().jwt(jwt -> jwt.subject("1"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("CONCERT_SYNC_ALREADY_RUNNING"));
   }
 
   @Test
-  @DisplayName("관리자 키 헤더가 없으면 거부한다")
-  void rejectsMissingAdminKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/concerts/sync"))
+  @DisplayName("ADMIN 권한이 없는 사용자는 접근을 거부당한다")
+  void rejectsNonAdminUser() throws Exception {
+    mockMvc.perform(post("/api/v1/admin/concerts/sync").with(jwt().jwt(jwt -> jwt.subject("1"))))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.code").value("CONCERT_ADMIN_ACCESS_DENIED"));
+        .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
     verifyNoInteractions(jobOperator);
   }
 
   @Test
-  @DisplayName("관리자 키가 틀리면 거부한다")
-  void rejectsWrongAdminKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/concerts/sync").header("X-Admin-Key", "wrong-key"))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.code").value("CONCERT_ADMIN_ACCESS_DENIED"));
+  @DisplayName("인증되지 않은 요청은 거부한다")
+  void rejectsUnauthenticatedRequest() throws Exception {
+    mockMvc.perform(post("/api/v1/admin/concerts/sync"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
     verifyNoInteractions(jobOperator);
   }

@@ -24,10 +24,7 @@ public enum ConcertErrorCode implements BaseCode {
       HttpStatus.BAD_REQUEST, "CONCERT_INVALID_GENRE", "존재하지 않는 장르입니다."),
 
   SYNC_ALREADY_RUNNING(
-      HttpStatus.CONFLICT, "CONCERT_SYNC_ALREADY_RUNNING", "이미 동기화가 진행 중입니다."),
-
-  ADMIN_ACCESS_DENIED(
-      HttpStatus.FORBIDDEN, "CONCERT_ADMIN_ACCESS_DENIED", "관리자만 접근할 수 있습니다.");
+      HttpStatus.CONFLICT, "CONCERT_SYNC_ALREADY_RUNNING", "이미 동기화가 진행 중입니다.");
 
   private final HttpStatus httpStatus;
   private final String code;

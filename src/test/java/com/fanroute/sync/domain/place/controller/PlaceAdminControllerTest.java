@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,17 +27,16 @@ import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-import com.fanroute.sync.global.config.AdminConfig;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(PlaceAdminController.class)
-@Import({SecurityConfig.class, AdminConfig.class})
-@TestPropertySource(properties = "admin.api-key=test-admin-key")
+@Import({SecurityConfig.class, SecurityWebMvcTestSupport.class})
 class PlaceAdminControllerTest {
 
   @Autowired
@@ -49,8 +49,10 @@ class PlaceAdminControllerTest {
   private Job attractionPlaceSyncJob;
   @MockitoBean(name = "restaurantPlaceSyncJob")
   private Job restaurantPlaceSyncJob;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
+
+  private static RequestPostProcessor adminJwt() {
+    return jwt().jwt(jwt -> jwt.subject("1")).authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+  }
 
   @Test
   @DisplayName("카테고리를 지정하면 해당 Job만 실행한다")
@@ -59,7 +61,7 @@ class PlaceAdminControllerTest {
         .thenReturn(execution("accommodationPlaceSyncJob", 10, 9, 1));
 
     mockMvc.perform(post("/api/v1/admin/places/sync")
-            .header("X-Admin-Key", "test-admin-key")
+            .with(adminJwt())
             .param("category", "ACCOMMODATION"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data[0].jobName").value("accommodationPlaceSyncJob"))
@@ -80,7 +82,7 @@ class PlaceAdminControllerTest {
     when(jobOperator.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("restaurantPlaceSyncJob", 3, 3, 0));
 
-    mockMvc.perform(post("/api/v1/admin/places/sync").header("X-Admin-Key", "test-admin-key"))
+    mockMvc.perform(post("/api/v1/admin/places/sync").with(adminJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data[0].jobName").value("accommodationPlaceSyncJob"))
         .andExpect(jsonPath("$.data[1].jobName").value("attractionPlaceSyncJob"))
@@ -97,7 +99,7 @@ class PlaceAdminControllerTest {
     when(jobOperator.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("restaurantPlaceSyncJob", 3, 3, 0));
 
-    mockMvc.perform(post("/api/v1/admin/places/sync").header("X-Admin-Key", "test-admin-key"))
+    mockMvc.perform(post("/api/v1/admin/places/sync").with(adminJwt()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.length()").value(2))
         .andExpect(jsonPath("$.data[0].jobName").value("attractionPlaceSyncJob"))
@@ -111,28 +113,28 @@ class PlaceAdminControllerTest {
         .thenThrow(new JobExecutionAlreadyRunningException("running"));
 
     mockMvc.perform(post("/api/v1/admin/places/sync")
-            .header("X-Admin-Key", "test-admin-key")
+            .with(adminJwt())
             .param("category", "ACCOMMODATION"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("PLACE_SYNC_ALREADY_RUNNING"));
   }
 
   @Test
-  @DisplayName("관리자 키 헤더가 없으면 거부한다")
-  void rejectsMissingAdminKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/places/sync"))
+  @DisplayName("ADMIN 권한이 없는 사용자는 접근을 거부당한다")
+  void rejectsNonAdminUser() throws Exception {
+    mockMvc.perform(post("/api/v1/admin/places/sync").with(jwt().jwt(jwt -> jwt.subject("1"))))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.code").value("PLACE_ADMIN_ACCESS_DENIED"));
+        .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
     verifyNoInteractions(jobOperator);
   }
 
   @Test
-  @DisplayName("관리자 키가 틀리면 거부한다")
-  void rejectsWrongAdminKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/places/sync").header("X-Admin-Key", "wrong-key"))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.code").value("PLACE_ADMIN_ACCESS_DENIED"));
+  @DisplayName("인증되지 않은 요청은 거부한다")
+  void rejectsUnauthenticatedRequest() throws Exception {
+    mockMvc.perform(post("/api/v1/admin/places/sync"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
     verifyNoInteractions(jobOperator);
   }

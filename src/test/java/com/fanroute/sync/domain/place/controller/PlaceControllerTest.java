@@ -17,7 +17,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,17 +27,16 @@ import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
 import com.fanroute.sync.global.config.WebMvcConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(PlaceController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class, SecurityWebMvcTestSupport.class})
 class PlaceControllerTest {
 
   @Autowired
   private MockMvc mockMvc;
   @MockitoBean
   private PlaceService placeService;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("인증 없이 장소 목록을 조회할 수 있다")

@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,17 +31,16 @@ import com.fanroute.sync.domain.concert.service.ConcertService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.config.SecurityConfig;
 import com.fanroute.sync.global.config.WebMvcConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(ConcertController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class, SecurityWebMvcTestSupport.class})
 class ConcertControllerTest {
 
   @Autowired
   private MockMvc mockMvc;
   @MockitoBean
   private ConcertService concertService;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("인증 없이 공연 목록을 조회할 수 있다")
