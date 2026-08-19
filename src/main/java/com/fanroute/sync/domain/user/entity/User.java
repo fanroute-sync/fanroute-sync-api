@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.entity.vo.UserRole;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.global.common.entity.SoftDeleteEntity;
@@ -62,6 +63,10 @@ public class User extends SoftDeleteEntity {
   @Column(nullable = false, length = 20)
   private UserStatus status; // 회원의 현재 이용 상태
 
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private UserRole role;
+
   private User(String nickname, AuthProvider authProvider, String providerUserId, String email) {
     this.nickname = normalizeNickname(nickname);
 
@@ -73,6 +78,7 @@ public class User extends SoftDeleteEntity {
     this.email = email;
 
     this.status = UserStatus.ACTIVE;
+    this.role = UserRole.USER;
   }
 
   /**
@@ -99,6 +105,14 @@ public class User extends SoftDeleteEntity {
   public void updateNickname(String newNickname) {
     ensureNotWithdrawn(UserErrorCode.USER_WITHDRAWN);
     this.nickname = normalizeNickname(newNickname);
+  }
+
+  public void updateRole(UserRole newRole) {
+    this.role = Objects.requireNonNull(newRole, "role must not be null");
+  }
+
+  public boolean isAdmin() {
+    return role == UserRole.ADMIN;
   }
 
   /**

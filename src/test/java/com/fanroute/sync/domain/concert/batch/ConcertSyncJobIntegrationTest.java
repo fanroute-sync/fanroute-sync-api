@@ -34,8 +34,7 @@ import com.fanroute.sync.support.TestContainerConfig;
     "auth.google.redirect-uri=http://localhost/test/callback",
     "auth.jwt.secret=dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
     "kopis.service-key=test-kopis-key",
-    "tour-api.service-key=test-tour-key",
-    "admin.api-key=test-admin-key"
+    "tour-api.service-key=test-tour-key"
 })
 @Import(TestContainerConfig.class)
 @SpringBatchTest

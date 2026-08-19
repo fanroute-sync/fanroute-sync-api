@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,13 +26,14 @@ import com.fanroute.sync.domain.auth.service.GoogleLoginService;
 import com.fanroute.sync.domain.auth.service.RefreshTokenService;
 import com.fanroute.sync.domain.auth.service.TokenRefreshService;
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 import jakarta.servlet.http.Cookie;
 
 @WebMvcTest(
     controllers = AuthController.class,
     properties = "auth.refresh.cookie.secure=true")
-@Import({SecurityConfig.class, RefreshTokenCookie.class})
+@Import({SecurityConfig.class, RefreshTokenCookie.class, SecurityWebMvcTestSupport.class})
 class AuthControllerTest {
 
   @Autowired
@@ -44,8 +44,6 @@ class AuthControllerTest {
   private TokenRefreshService tokenRefreshService;
   @MockitoBean
   private RefreshTokenService refreshTokenService;
-  @MockitoBean(name = "jwtDecoder")
-  private JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("Google 로그인은 Access Token을 응답하고 Refresh Token Cookie를 발급한다")

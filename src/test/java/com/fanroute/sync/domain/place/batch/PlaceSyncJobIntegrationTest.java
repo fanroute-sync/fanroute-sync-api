@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.fanroute.sync.domain.place.dto.TourApiDto.PlaceSummary;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -34,8 +35,7 @@ import com.fanroute.sync.support.TestContainerConfig;
     "auth.google.redirect-uri=http://localhost/test/callback",
     "auth.jwt.secret=dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
     "kopis.service-key=test-kopis-key",
-    "tour-api.service-key=test-tour-key",
-    "admin.api-key=test-admin-key"
+    "tour-api.service-key=test-tour-key"
 })
 @Import(TestContainerConfig.class)
 @SpringBatchTest
@@ -62,7 +62,7 @@ class PlaceSyncJobIntegrationTest {
     when(tourApiClient.searchStay(
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         eq(1)))
-        .thenReturn(searchStayResponse(List.of(summary("126508")), 1));
+        .thenReturn(searchStayResponse(List.of(summary())));
 
     JobExecution execution = jobOperatorTestUtils.startJob();
 
@@ -75,15 +75,15 @@ class PlaceSyncJobIntegrationTest {
   }
 
   private TourApiDto.SearchStayResponse searchStayResponse(
-      List<TourApiDto.PlaceSummary> items, int totalCount) {
+      List<PlaceSummary> items) {
     TourApiDto.Items wrappedItems = new TourApiDto.Items(items);
-    TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, totalCount);
+    TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, 1);
     return new TourApiDto.SearchStayResponse(new TourApiDto.Response(null, body));
   }
 
-  private TourApiDto.PlaceSummary summary(String contentId) {
+  private TourApiDto.PlaceSummary summary() {
     return new TourApiDto.PlaceSummary(
-        contentId, "32", "테스트 호텔", "부산 해운대구", null, null, 129.163, 35.163, null, null, null,
+        "126508", "32", "테스트 호텔", "부산 해운대구", null, null, 129.163, 35.163, null, null, null,
         null, "26", null, null, null, null, null, null);
   }
 }

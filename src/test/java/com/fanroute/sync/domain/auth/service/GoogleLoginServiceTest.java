@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URI;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.util.MultiValueMap;
 
 import com.fanroute.sync.domain.auth.client.GoogleTokenClient;
-import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.dto.GoogleOAuthDto;
 import com.fanroute.sync.domain.auth.dto.LoginDto;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
@@ -30,6 +28,7 @@ import com.fanroute.sync.domain.user.service.UserService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.external.ExternalApiErrorType;
 import com.fanroute.sync.global.external.ExternalApiException;
+import com.fanroute.sync.support.AuthPropertiesFixture;
 import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,21 +49,9 @@ class GoogleLoginServiceTest {
 
   @BeforeEach
   void setUp() {
-    AuthProperties.Google google = new AuthProperties.Google(
-        "client-id",
-        "client-secret",
-        URI.create("http://localhost/callback"),
-        "https://accounts.google.com",
-        URI.create("https://www.googleapis.com/oauth2/v3/certs"));
-    AuthProperties.Jwt jwt = new AuthProperties.Jwt(
-        "https://api.test.fanroute.com",
-        "dGVzdC1vbmx5LWtleS10aGF0LWlzLWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=",
-        java.time.Duration.ofHours(1));
-    AuthProperties properties = new AuthProperties(
-        google, jwt, new AuthProperties.Refresh(java.time.Duration.ofDays(14)));
     googleLoginService = new GoogleLoginService(
         googleTokenClient, idTokenVerifier, userService, accessTokenService, refreshTokenService,
-        properties);
+        AuthPropertiesFixture.defaultProperties());
   }
 
   @Test

@@ -21,10 +21,7 @@ public enum PlaceErrorCode implements BaseCode {
       HttpStatus.BAD_GATEWAY, "PLACE_TOUR_API_RESPONSE_INVALID", "TourAPI 응답을 처리할 수 없습니다."),
 
   SYNC_ALREADY_RUNNING(
-      HttpStatus.CONFLICT, "PLACE_SYNC_ALREADY_RUNNING", "이미 동기화가 진행 중입니다."),
-
-  ADMIN_ACCESS_DENIED(
-      HttpStatus.FORBIDDEN, "PLACE_ADMIN_ACCESS_DENIED", "관리자만 접근할 수 있습니다.");
+      HttpStatus.CONFLICT, "PLACE_SYNC_ALREADY_RUNNING", "이미 동기화가 진행 중입니다.");
 
   private final HttpStatus httpStatus;
   private final String code;

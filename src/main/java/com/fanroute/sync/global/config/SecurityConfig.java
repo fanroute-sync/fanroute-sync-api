@@ -13,12 +13,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.fanroute.sync.domain.auth.config.AdminAuthoritiesConverter;
 import com.fanroute.sync.domain.auth.config.RefreshTokenCsrfFilter;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.global.common.response.ApiResponse;
@@ -37,6 +39,7 @@ public class SecurityConfig {
       HttpSecurity http,
       ObjectMapper objectMapper,
       @Qualifier("jwtDecoder") JwtDecoder jwtDecoder,
+      JwtAuthenticationConverter jwtAuthenticationConverter,
       CorsConfigurationSource corsConfigurationSource)
       throws Exception {
     return http
@@ -55,11 +58,11 @@ public class SecurityConfig {
             .permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/places", "/api/v1/places/*")
             .permitAll()
-            // 관리자 API는 X-Admin-Key로 별도 인증합니다.
-            .requestMatchers("/api/v1/admin/**").permitAll()
+            // 관리자 경로의 권한 검사를 한 곳에서 강제합니다.
+            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
-            .jwt(jwt -> jwt.decoder(jwtDecoder))
+            .jwt(jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter))
             // 401
             .authenticationEntryPoint(
                 (request, response, exception) -> writeError(response, objectMapper,
@@ -72,6 +75,14 @@ public class SecurityConfig {
             new RefreshTokenCsrfFilter(objectMapper),
             BearerTokenAuthenticationFilter.class)
         .build();
+  }
+
+  @Bean
+  public JwtAuthenticationConverter jwtAuthenticationConverter(
+      AdminAuthoritiesConverter adminAuthoritiesConverter) {
+    JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+    converter.setJwtGrantedAuthoritiesConverter(adminAuthoritiesConverter::resolveAuthorities);
+    return converter;
   }
 
   /**
