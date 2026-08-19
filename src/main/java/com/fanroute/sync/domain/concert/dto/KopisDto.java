@@ -1,10 +1,10 @@
 package com.fanroute.sync.domain.concert.dto;
 
+import com.fasterxml.jackson.annotation.JsonRootName;
 import java.util.List;
 
 import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
-import tools.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class KopisDto {
 
-  @JacksonXmlRootElement(localName = "dbs")
+  @JsonRootName("dbs")
   public record PerformanceListResponse(
       @JacksonXmlProperty(localName = "db")
       @JacksonXmlElementWrapper(useWrapping = false)
@@ -34,7 +34,7 @@ public final class KopisDto {
 
   }
 
-  @JacksonXmlRootElement(localName = "dbs")
+  @JsonRootName("dbs")
   public record PerformanceDetailResponse(
       @JacksonXmlProperty(localName = "db") PerformanceDetail performance) {
 
@@ -42,7 +42,7 @@ public final class KopisDto {
 
   public record PerformanceDetail(
       @JacksonXmlProperty(localName = "mt20id") String kopisConcertId,
-      @JacksonXmlProperty(localName = "mt10id") String kopisVenueId, // 확인 필요
+      @JacksonXmlProperty(localName = "mt10id") String kopisVenueId,
       @JacksonXmlProperty(localName = "prfnm") String title,
       @JacksonXmlProperty(localName = "prfpdfrom") String startDate,
       @JacksonXmlProperty(localName = "prfpdto") String endDate,
@@ -53,7 +53,7 @@ public final class KopisDto {
 
   }
 
-  @JacksonXmlRootElement(localName = "dbs")
+  @JsonRootName("dbs")
   public record VenueDetailResponse(
       @JacksonXmlProperty(localName = "db") VenueDetail venue) {
 
