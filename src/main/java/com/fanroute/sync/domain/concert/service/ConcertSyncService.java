@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,13 +46,6 @@ public class ConcertSyncService {
   private final VenueRepository venueRepository;
   private final ConcertRepository concertRepository;
   private final Clock clock;
-
-  @Scheduled(cron = "${kopis.sync-cron:0 0 4 * * *}")
-  public void syncConcertsOnSchedule() {
-    SyncResult result = syncConcerts();
-    log.info("KOPIS 공연 정기 동기화 완료: total={}, succeeded={}, failed={}",
-        result.total(), result.succeeded(), result.failed());
-  }
 
   public SyncResult syncConcerts() {
     LocalDate today = LocalDate.now(clock);
