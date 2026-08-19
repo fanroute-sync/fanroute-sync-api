@@ -18,4 +18,16 @@ public interface TourApiClient {
       @RequestParam("lDongRegnCd") String legalDongRegionCode,
       @RequestParam("numOfRows") int numOfRows,
       @RequestParam("pageNo") int pageNo);
+
+  @GetExchange("/areaBasedList2")
+  TourApiDto.AreaBasedListResponse searchAreaBasedList(
+      @RequestParam("serviceKey") String serviceKey,
+      @RequestParam("MobileOS") String mobileOs,
+      @RequestParam("MobileApp") String mobileApp,
+      @RequestParam("_type") String responseType,
+      @RequestParam("arrange") String arrange,
+      @RequestParam("contentTypeId") String contentTypeId,
+      @RequestParam("lDongRegnCd") String legalDongRegionCode,
+      @RequestParam("numOfRows") int numOfRows,
+      @RequestParam("pageNo") int pageNo);
 }

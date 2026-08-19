@@ -75,6 +75,45 @@ class TourApiDtoJsonMappingTest {
   }
 
   @Test
+  @DisplayName("지역기반 관광정보조회 JSON 응답도 동일한 필드로 역직렬화한다")
+  void parsesAreaBasedListJson() {
+    String json = """
+        {
+          "response": {
+            "header": { "resultCode": "0000", "resultMsg": "OK" },
+            "body": {
+              "items": {
+                "item": [
+                  {
+                    "contentid": "126600",
+                    "contenttypeid": "12",
+                    "title": "테스트 관광지",
+                    "addr1": "부산 중구",
+                    "mapx": "129.030",
+                    "mapy": "35.100"
+                  }
+                ]
+              },
+              "numOfRows": 50,
+              "pageNo": 1,
+              "totalCount": 1
+            }
+          }
+        }
+        """;
+
+    TourApiDto.AreaBasedListResponse response =
+        jsonMapper.readValue(json, TourApiDto.AreaBasedListResponse.class);
+
+    assertThat(response.totalCount()).isEqualTo(1);
+    assertThat(response.itemsOrEmpty()).hasSize(1);
+    TourApiDto.PlaceSummary summary = response.itemsOrEmpty().get(0);
+    assertThat(summary.contentId()).isEqualTo("126600");
+    assertThat(summary.contentTypeId()).isEqualTo("12");
+    assertThat(summary.name()).isEqualTo("테스트 관광지");
+  }
+
+  @Test
   @DisplayName("item이 없는 응답은 빈 목록으로 처리한다")
   void handlesEmptyItems() {
     String json = """

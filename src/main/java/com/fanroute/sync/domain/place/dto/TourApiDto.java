@@ -16,19 +16,52 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class TourApiDto {
 
-  public record SearchStayResponse(@JsonProperty("response") Response response) {
+  /** 동일한 목록 응답 스키마를 공통 처리합니다. */
+  public interface PlaceListResponse {
 
+    List<PlaceSummary> itemsOrEmpty();
+
+    int totalCount();
+  }
+
+  public record SearchStayResponse(@JsonProperty("response") Response response)
+      implements PlaceListResponse {
+
+    @Override
     public List<PlaceSummary> itemsOrEmpty() {
-      if (response == null || response.body() == null || response.body().items() == null
-          || response.body().items().item() == null) {
-        return List.of();
-      }
-      return response.body().items().item();
+      return TourApiDto.itemsOrEmpty(response);
     }
 
+    @Override
     public int totalCount() {
-      return response == null || response.body() == null ? 0 : response.body().totalCount();
+      return TourApiDto.totalCount(response);
     }
+  }
+
+  public record AreaBasedListResponse(@JsonProperty("response") Response response)
+      implements PlaceListResponse {
+
+    @Override
+    public List<PlaceSummary> itemsOrEmpty() {
+      return TourApiDto.itemsOrEmpty(response);
+    }
+
+    @Override
+    public int totalCount() {
+      return TourApiDto.totalCount(response);
+    }
+  }
+
+  private static List<PlaceSummary> itemsOrEmpty(Response response) {
+    if (response == null || response.body() == null || response.body().items() == null
+        || response.body().items().item() == null) {
+      return List.of();
+    }
+    return response.body().items().item();
+  }
+
+  private static int totalCount(Response response) {
+    return response == null || response.body() == null ? 0 : response.body().totalCount();
   }
 
   public record Response(
