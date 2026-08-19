@@ -46,20 +46,50 @@ class PlaceSyncServiceTest {
   }
 
   @Test
-  @DisplayName("전체 결과가 한 페이지에 다 들어오면 한 번만 조회하고 종료한다")
-  void stopsAfterSinglePage() {
+  @DisplayName("숙박은 searchStay2로 조회한다")
+  void syncsAccommodationViaSearchStay() {
     when(tourApiClient.searchStay(
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         eq(1)))
-        .thenReturn(response(List.of(summary("1"), summary("2")), 2));
+        .thenReturn(searchStayResponse(List.of(summary("1", "32")), 1));
 
     PlaceSyncService.SyncResult result = service.sync(PlaceCategory.ACCOMMODATION);
 
-    assertThat(result.category()).isEqualTo(PlaceCategory.ACCOMMODATION);
-    assertThat(result.upsertedCount()).isEqualTo(2);
+    assertThat(result.upsertedCount()).isEqualTo(1);
     verify(tourApiClient, times(1)).searchStay(
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         anyInt());
+  }
+
+  @Test
+  @DisplayName("관광지는 areaBasedList2를 contentTypeId=12로 호출한다")
+  void syncsAttractionViaAreaBasedList() {
+    when(tourApiClient.searchAreaBasedList(
+        anyString(), anyString(), anyString(), anyString(), anyString(), eq("12"), anyString(),
+        anyInt(), eq(1)))
+        .thenReturn(areaBasedListResponse(List.of(summary("1", "12")), 1));
+
+    PlaceSyncService.SyncResult result = service.sync(PlaceCategory.ATTRACTION);
+
+    assertThat(result.category()).isEqualTo(PlaceCategory.ATTRACTION);
+    assertThat(result.upsertedCount()).isEqualTo(1);
+    verify(tourApiClient, times(1)).searchAreaBasedList(
+        anyString(), anyString(), anyString(), anyString(), anyString(), eq("12"), anyString(),
+        anyInt(), anyInt());
+  }
+
+  @Test
+  @DisplayName("음식점은 areaBasedList2를 contentTypeId=39로 호출한다")
+  void syncsRestaurantViaAreaBasedList() {
+    when(tourApiClient.searchAreaBasedList(
+        anyString(), anyString(), anyString(), anyString(), anyString(), eq("39"), anyString(),
+        anyInt(), eq(1)))
+        .thenReturn(areaBasedListResponse(List.of(summary("1", "39")), 1));
+
+    PlaceSyncService.SyncResult result = service.sync(PlaceCategory.RESTAURANT);
+
+    assertThat(result.category()).isEqualTo(PlaceCategory.RESTAURANT);
+    assertThat(result.upsertedCount()).isEqualTo(1);
   }
 
   @Test
@@ -68,11 +98,11 @@ class PlaceSyncServiceTest {
     when(tourApiClient.searchStay(
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         eq(1)))
-        .thenReturn(response(List.of(summary("1")), 60));
+        .thenReturn(searchStayResponse(List.of(summary("1", "32")), 60));
     when(tourApiClient.searchStay(
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         eq(2)))
-        .thenReturn(response(List.of(summary("2")), 60));
+        .thenReturn(searchStayResponse(List.of(summary("2", "32")), 60));
 
     PlaceSyncService.SyncResult result = service.sync(PlaceCategory.ACCOMMODATION);
 
@@ -92,7 +122,7 @@ class PlaceSyncServiceTest {
         anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
         eq(1)))
         .thenThrow(serverError())
-        .thenReturn(response(List.of(summary("1")), 1));
+        .thenReturn(searchStayResponse(List.of(summary("1", "32")), 1));
 
     PlaceSyncService.SyncResult result = service.sync(PlaceCategory.ACCOMMODATION);
 
@@ -121,11 +151,32 @@ class PlaceSyncServiceTest {
   }
 
   @Test
-  @DisplayName("아직 지원하지 않는 카테고리는 외부 API 호출 없이 예외를 던진다")
-  void rejectsUnsupportedCategory() {
-    assertThatThrownBy(() -> service.sync(PlaceCategory.ATTRACTION))
-        .isInstanceOf(UnsupportedOperationException.class);
-    verifyNoInteractions(tourApiClient);
+  @DisplayName("syncAll은 한 카테고리가 실패해도 나머지 카테고리는 계속 진행한다")
+  void syncAllIsolatesFailurePerCategory() {
+    when(tourApiClient.searchStay(
+        anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
+        eq(1)))
+        .thenReturn(searchStayResponse(List.of(summary("1", "32")), 1));
+    when(tourApiClient.searchAreaBasedList(
+        anyString(), anyString(), anyString(), anyString(), anyString(), eq("12"), anyString(),
+        anyInt(), eq(1)))
+        .thenThrow(serverError());
+    when(tourApiClient.searchAreaBasedList(
+        anyString(), anyString(), anyString(), anyString(), anyString(), eq("39"), anyString(),
+        anyInt(), eq(1)))
+        .thenReturn(areaBasedListResponse(List.of(summary("2", "39")), 1));
+
+    List<PlaceSyncService.SyncOutcome> outcomes = service.syncAll();
+
+    assertThat(outcomes).hasSize(3);
+    assertThat(outcomes.get(0).category()).isEqualTo(PlaceCategory.ACCOMMODATION);
+    assertThat(outcomes.get(0).success()).isTrue();
+    assertThat(outcomes.get(0).upsertedCount()).isEqualTo(1);
+    assertThat(outcomes.get(1).category()).isEqualTo(PlaceCategory.ATTRACTION);
+    assertThat(outcomes.get(1).success()).isFalse();
+    assertThat(outcomes.get(2).category()).isEqualTo(PlaceCategory.RESTAURANT);
+    assertThat(outcomes.get(2).success()).isTrue();
+    assertThat(outcomes.get(2).upsertedCount()).isEqualTo(1);
   }
 
   private ExternalApiException serverError() {
@@ -133,17 +184,25 @@ class PlaceSyncServiceTest {
         ExternalApiErrorType.SERVER_ERROR, HttpStatus.BAD_GATEWAY, "server error");
   }
 
-  private TourApiDto.SearchStayResponse response(
+  private TourApiDto.SearchStayResponse searchStayResponse(
       List<TourApiDto.PlaceSummary> items, int totalCount) {
-    TourApiDto.Items wrappedItems = new TourApiDto.Items(items);
-    TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, totalCount);
-    TourApiDto.Response response = new TourApiDto.Response(null, body);
-    return new TourApiDto.SearchStayResponse(response);
+    return new TourApiDto.SearchStayResponse(responseBody(items, totalCount));
   }
 
-  private TourApiDto.PlaceSummary summary(String contentId) {
+  private TourApiDto.AreaBasedListResponse areaBasedListResponse(
+      List<TourApiDto.PlaceSummary> items, int totalCount) {
+    return new TourApiDto.AreaBasedListResponse(responseBody(items, totalCount));
+  }
+
+  private TourApiDto.Response responseBody(List<TourApiDto.PlaceSummary> items, int totalCount) {
+    TourApiDto.Items wrappedItems = new TourApiDto.Items(items);
+    TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, totalCount);
+    return new TourApiDto.Response(null, body);
+  }
+
+  private TourApiDto.PlaceSummary summary(String contentId, String contentTypeId) {
     return new TourApiDto.PlaceSummary(
-        contentId, "32", "테스트 장소", "부산", null, null, 129.0, 35.1, null, null, null, null, "26",
-        null, null, null, null, null, null);
+        contentId, contentTypeId, "테스트 장소", "부산", null, null, 129.0, 35.1, null, null, null,
+        null, "26", null, null, null, null, null, null);
   }
 }

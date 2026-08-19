@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.place.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,7 +17,7 @@ import com.fanroute.sync.global.external.ExternalApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/** 페이지 누락을 막기 위해 한 페이지가 실패하면 해당 카테고리 동기화 전체를 중단합니다. */
+/** 페이지 누락을 막기 위해 페이지 실패 시 해당 카테고리 동기화를 중단합니다. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,7 +26,7 @@ public class PlaceSyncService {
   private static final String MOBILE_OS = "ETC";
   private static final String MOBILE_APP = "FanRoute";
   private static final String RESPONSE_TYPE = "json";
-  private static final String ARRANGE_BY_MODIFIED = "C";
+  private static final String ARRANGE_BY_MODIFIED = "C"; // TourAPI 수정일순 코드
   private static final int PAGE_SIZE = 50;
   private static final int MAX_RETRY_COUNT = 3;
 
@@ -34,19 +35,35 @@ public class PlaceSyncService {
   private final PlaceUpsertService placeUpsertService;
 
   @Scheduled(cron = "${tour-api.sync-cron:0 0 5 * * *}")
-  public void syncAccommodationsOnSchedule() {
-    SyncResult result = sync(PlaceCategory.ACCOMMODATION);
-    log.info("TourAPI 장소 정기 동기화 완료: category={}, upsertedCount={}",
-        result.category(), result.upsertedCount());
+  public void syncPlacesOnSchedule() {
+    for (SyncOutcome outcome : syncAll()) {
+      log.info(
+          "TourAPI 장소 정기 동기화 완료: category={}, success={}, upsertedCount={}, "
+              + "failureMessage={}",
+          outcome.category(), outcome.success(), outcome.upsertedCount(),
+          outcome.failureMessage());
+    }
+  }
+
+  /** 카테고리별 실패를 격리해 나머지 동기화를 계속합니다. */
+  public List<SyncOutcome> syncAll() {
+    List<SyncOutcome> outcomes = new ArrayList<>();
+    for (PlaceCategory category : PlaceCategory.values()) {
+      try {
+        outcomes.add(SyncOutcome.success(sync(category)));
+      } catch (Exception exception) {
+        log.error("TourAPI 장소 동기화 실패: category={}", category, exception);
+        outcomes.add(SyncOutcome.failure(category, exception.getMessage()));
+      }
+    }
+    return outcomes;
   }
 
   public SyncResult sync(PlaceCategory category) {
-    validateSupported(category);
-
     int upsertedCount = 0;
     int pageNo = 1;
     while (true) {
-      TourApiDto.SearchStayResponse response = fetchPageWithRetry(pageNo);
+      TourApiDto.PlaceListResponse response = fetchPageWithRetry(category, pageNo);
       List<TourApiDto.PlaceSummary> items = response.itemsOrEmpty();
       if (items.isEmpty()) {
         break;
@@ -62,28 +79,43 @@ public class PlaceSyncService {
     return new SyncResult(category, upsertedCount);
   }
 
-  private void validateSupported(PlaceCategory category) {
-    if (category != PlaceCategory.ACCOMMODATION) {
-      throw new UnsupportedOperationException(
-          "아직 지원하지 않는 장소 카테고리입니다: " + category);
-    }
-  }
-
-  private TourApiDto.SearchStayResponse fetchPageWithRetry(int pageNo) {
+  private TourApiDto.PlaceListResponse fetchPageWithRetry(PlaceCategory category, int pageNo) {
     for (int attempt = 1; attempt <= MAX_RETRY_COUNT; attempt++) {
       try {
-        return tourApiClient.searchStay(
-            tourApiProperties.serviceKey(), MOBILE_OS, MOBILE_APP, RESPONSE_TYPE,
-            ARRANGE_BY_MODIFIED, tourApiProperties.legalDongRegionCode(), PAGE_SIZE, pageNo);
+        return fetchPage(category, pageNo);
       } catch (ExternalApiException exception) {
-        log.warn("TourAPI 목록 조회 실패(재시도 {}/{}): pageNo={}, message={}",
-            attempt, MAX_RETRY_COUNT, pageNo, exception.getMessage());
+        log.warn("TourAPI 목록 조회 실패(재시도 {}/{}): category={}, pageNo={}, message={}",
+            attempt, MAX_RETRY_COUNT, category, pageNo, exception.getMessage());
       }
     }
     throw new BusinessException(PlaceErrorCode.TOUR_API_UNAVAILABLE);
   }
 
+  private TourApiDto.PlaceListResponse fetchPage(PlaceCategory category, int pageNo) {
+    if (category == PlaceCategory.ACCOMMODATION) {
+      return tourApiClient.searchStay(
+          tourApiProperties.serviceKey(), MOBILE_OS, MOBILE_APP, RESPONSE_TYPE,
+          ARRANGE_BY_MODIFIED, tourApiProperties.legalDongRegionCode(), PAGE_SIZE, pageNo);
+    }
+    return tourApiClient.searchAreaBasedList(
+        tourApiProperties.serviceKey(), MOBILE_OS, MOBILE_APP, RESPONSE_TYPE,
+        ARRANGE_BY_MODIFIED, category.tourApiContentTypeId(),
+        tourApiProperties.legalDongRegionCode(), PAGE_SIZE, pageNo);
+  }
+
   public record SyncResult(PlaceCategory category, int upsertedCount) {
 
+  }
+
+  public record SyncOutcome(
+      PlaceCategory category, boolean success, int upsertedCount, String failureMessage) {
+
+    public static SyncOutcome success(SyncResult result) {
+      return new SyncOutcome(result.category(), true, result.upsertedCount(), null);
+    }
+
+    public static SyncOutcome failure(PlaceCategory category, String failureMessage) {
+      return new SyncOutcome(category, false, 0, failureMessage);
+    }
   }
 }

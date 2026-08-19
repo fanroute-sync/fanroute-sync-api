@@ -84,6 +84,17 @@ class PlaceUpsertServiceTest {
                 .isEqualTo(PlaceErrorCode.TOUR_API_RESPONSE_INVALID));
   }
 
+  @Test
+  @DisplayName("contentTypeId가 요청 카테고리와 다르면 저장하지 않고 건너뛴다")
+  void skipsItemWhenContentTypeIdDoesNotMatchCategory() {
+    TourApiDto.PlaceSummary mismatched = summary("126508");
+
+    placeUpsertService.upsertPage(PlaceCategory.ATTRACTION, List.of(mismatched));
+
+    verify(placeRepository, never()).save(any());
+    verify(placeRepository, never()).findByContentId(any());
+  }
+
   private TourApiDto.PlaceSummary summary(String contentId) {
     return new TourApiDto.PlaceSummary(
         contentId, "32", "테스트 장소", "부산", null, null, 129.0, 35.1, null, null, null, null, "26",
