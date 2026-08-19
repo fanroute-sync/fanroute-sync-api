@@ -53,6 +53,8 @@ public class SecurityConfig {
             ).permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/concerts", "/api/v1/concerts/*")
             .permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/places", "/api/v1/places/*")
+            .permitAll()
             // 관리자 API는 X-Admin-Key로 별도 인증합니다.
             .requestMatchers("/api/v1/admin/**").permitAll()
             .anyRequest().authenticated())
