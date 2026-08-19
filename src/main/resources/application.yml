@@ -33,6 +33,12 @@ spring:
     properties:
       "[hibernate.jdbc.time_zone]": UTC
 
+  batch:
+    job:
+      enabled: false # 애플리케이션 시작 시 Job 자동 실행 방지
+    jdbc:
+      initialize-schema: always # Spring Batch 메타데이터 테이블 생성
+
 auth:
   google:
     client-id: ${GOOGLE_CLIENT_ID}

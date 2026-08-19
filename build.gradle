@@ -57,6 +57,12 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 
     // =========================
+    // Batch (외부 API 동기화 Job)
+    // =========================
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+
+    // =========================
     // KOPIS 등 XML 응답 외부 API 연동
     // 이 프로젝트는 Jackson 3.x(tools.jackson.*) 기반이라 구버전(com.fasterxml.jackson.dataformat)이
     // 아닌 tools.jackson.dataformat 좌표를 사용해야 함
