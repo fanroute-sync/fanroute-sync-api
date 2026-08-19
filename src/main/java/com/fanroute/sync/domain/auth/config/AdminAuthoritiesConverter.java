@@ -30,7 +30,7 @@ public class AdminAuthoritiesConverter {
     }
 
     try {
-      User user = userService.findUser(userId);
+      User user = userService.getAccessibleUser(userId);
       return user.isAdmin() ? List.of(ROLE_ADMIN) : List.of();
     } catch (BusinessException exception) {
       return List.of();

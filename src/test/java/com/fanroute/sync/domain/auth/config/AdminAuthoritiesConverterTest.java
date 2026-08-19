@@ -43,7 +43,7 @@ class AdminAuthoritiesConverterTest {
     User admin = UserFixture.activeUserWithId(1L);
     admin.updateRole(UserRole.ADMIN);
     when(jwt.getSubject()).thenReturn("1");
-    when(userService.findUser(1L)).thenReturn(admin);
+    when(userService.getAccessibleUser(1L)).thenReturn(admin);
 
     Collection<GrantedAuthority> authorities = converter.resolveAuthorities(jwt);
 
@@ -55,7 +55,7 @@ class AdminAuthoritiesConverterTest {
   void grantsNoAuthorityForRegularUser() {
     User user = UserFixture.activeUserWithId(1L);
     when(jwt.getSubject()).thenReturn("1");
-    when(userService.findUser(1L)).thenReturn(user);
+    when(userService.getAccessibleUser(1L)).thenReturn(user);
 
     assertTrue(converter.resolveAuthorities(jwt).isEmpty());
   }
@@ -72,7 +72,25 @@ class AdminAuthoritiesConverterTest {
   @DisplayName("사용자를 찾을 수 없으면 권한을 부여하지 않는다")
   void grantsNoAuthorityWhenUserNotFound() {
     when(jwt.getSubject()).thenReturn("999");
-    when(userService.findUser(999L)).thenThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    when(userService.getAccessibleUser(999L)).thenThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+    assertTrue(converter.resolveAuthorities(jwt).isEmpty());
+  }
+
+  @Test
+  @DisplayName("정지된 ADMIN에게는 권한을 부여하지 않는다")
+  void grantsNoAuthorityForSuspendedAdmin() {
+    when(jwt.getSubject()).thenReturn("1");
+    when(userService.getAccessibleUser(1L)).thenThrow(new BusinessException(UserErrorCode.USER_SUSPENDED));
+
+    assertTrue(converter.resolveAuthorities(jwt).isEmpty());
+  }
+
+  @Test
+  @DisplayName("탈퇴한 ADMIN에게는 권한을 부여하지 않는다")
+  void grantsNoAuthorityForWithdrawnAdmin() {
+    when(jwt.getSubject()).thenReturn("1");
+    when(userService.getAccessibleUser(1L)).thenThrow(new BusinessException(UserErrorCode.USER_WITHDRAWN));
 
     assertTrue(converter.resolveAuthorities(jwt).isEmpty());
   }
