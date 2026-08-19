@@ -3,10 +3,10 @@ package com.fanroute.sync.domain.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.net.URI;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -25,9 +25,9 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.support.AuthPropertiesFixture;
 
 @Testcontainers(disabledWithoutDocker = true)
 class RefreshTokenServiceIntegrationTest {
@@ -65,7 +65,8 @@ class RefreshTokenServiceIntegrationTest {
       connection.serverCommands().flushAll();
       return null;
     });
-    service = new RefreshTokenService(redisTemplate, properties(), new SecureRandom());
+    service = new RefreshTokenService(
+        redisTemplate, AuthPropertiesFixture.defaultProperties(), new SecureRandom());
   }
 
   @Test
@@ -96,7 +97,7 @@ class RefreshTokenServiceIntegrationTest {
     }
 
     List<RefreshTokenService.IssuedToken> successful =
-        results.stream().filter(result -> result != null).toList();
+        results.stream().filter(Objects::nonNull).toList();
     assertThat(successful).hasSize(1);
     assertThatThrownBy(() -> service.findUserId(original.value()))
         .isInstanceOf(BusinessException.class);
@@ -132,14 +133,5 @@ class RefreshTokenServiceIntegrationTest {
     } catch (Exception exception) {
       throw new AssertionError("동시 Rotation 실행에 실패했습니다.", exception);
     }
-  }
-
-  private static AuthProperties properties() {
-    return new AuthProperties(
-        new AuthProperties.Google(
-            "client-id", "client-secret", URI.create("http://localhost/callback"),
-            "https://accounts.google.com", URI.create("https://google.test/certs")),
-        new AuthProperties.Jwt("issuer", "secret", Duration.ofHours(1)),
-        new AuthProperties.Refresh(TOKEN_TTL));
   }
 }

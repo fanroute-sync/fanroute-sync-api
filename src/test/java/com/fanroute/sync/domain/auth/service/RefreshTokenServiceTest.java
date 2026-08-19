@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.net.URI;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.List;
@@ -24,9 +23,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 
-import com.fanroute.sync.domain.auth.config.AuthProperties;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.support.AuthPropertiesFixture;
 
 class RefreshTokenServiceTest {
 
@@ -41,13 +40,8 @@ class RefreshTokenServiceTest {
     valueOperations = mock(ValueOperations.class);
     when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-    AuthProperties properties = new AuthProperties(
-        new AuthProperties.Google(
-            "client-id", "client-secret", URI.create("http://localhost/callback"),
-            "https://accounts.google.com", URI.create("https://google.test/certs")),
-        new AuthProperties.Jwt("issuer", "secret", Duration.ofHours(1)),
-        new AuthProperties.Refresh(Duration.ofDays(14)));
-    service = new RefreshTokenService(redisTemplate, properties, new SecureRandom());
+    service = new RefreshTokenService(
+        redisTemplate, AuthPropertiesFixture.defaultProperties(), new SecureRandom());
   }
 
   @Test
