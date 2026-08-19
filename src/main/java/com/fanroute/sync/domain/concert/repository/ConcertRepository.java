@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 
 public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
@@ -25,7 +26,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
       countQuery = "select count(c) from Concert c "
           + "where c.endDate >= :from and c.genreName = :genreName")
   Page<Concert> findByEndDateGreaterThanEqualAndGenreName(
-      @Param("from") LocalDate from, @Param("genreName") String genreName, Pageable pageable);
+      @Param("from") LocalDate from, @Param("genreName") Genre genreName, Pageable pageable);
 
   @Query(
       value = "select c from Concert c join fetch c.venue where c.endDate >= :from",

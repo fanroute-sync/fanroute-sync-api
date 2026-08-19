@@ -25,7 +25,7 @@ public final class ConcertDto {
       return new Response(
           concert.getId(),
           concert.getTitle(),
-          concert.getGenreName(),
+          concert.getGenreName() == null ? null : concert.getGenreName().label(),
           concert.getStartDate(),
           concert.getEndDate(),
           concert.getPosterUrl(),

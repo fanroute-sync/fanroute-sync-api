@@ -18,6 +18,7 @@ import com.fanroute.sync.domain.concert.client.KopisClient;
 import com.fanroute.sync.domain.concert.config.KopisProperties;
 import com.fanroute.sync.domain.concert.dto.KopisDto;
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.entity.Venue;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.repository.ConcertRepository;
@@ -117,8 +118,11 @@ public class ConcertSyncService {
   @Transactional
   public void syncPerformance(String kopisConcertId) {
     KopisDto.PerformanceDetail detail = fetchPerformanceDetail(kopisConcertId);
+    LocalDate startDate = parseDate(detail.startDate());
+    LocalDate endDate = parseDate(detail.endDate());
+    Genre genre = parseGenre(detail.genreName());
     Venue venue = syncVenue(detail.kopisVenueId(), detail.venueName());
-    upsertConcert(detail, venue);
+    upsertConcert(detail, venue, startDate, endDate, genre);
   }
 
   private KopisDto.PerformanceDetail fetchPerformanceDetail(String kopisConcertId) {
@@ -165,25 +169,31 @@ public class ConcertSyncService {
     return response.venue();
   }
 
-  private void upsertConcert(KopisDto.PerformanceDetail detail, Venue venue) {
-    LocalDate startDate = parseDate(detail.startDate());
-    LocalDate endDate = parseDate(detail.endDate());
+  private void upsertConcert(KopisDto.PerformanceDetail detail, Venue venue,
+      LocalDate startDate, LocalDate endDate, Genre genre) {
     Instant syncedAt = clock.instant();
 
     concertRepository.findByKopisConcertId(detail.kopisConcertId())
         .ifPresentOrElse(
             concert -> concert.updateFromSync(
-                venue, detail.title(), detail.genreName(), startDate, endDate,
-                detail.posterUrl(), syncedAt),
+                venue, detail.title(), genre, startDate, endDate, detail.posterUrl(), syncedAt),
             () -> concertRepository.save(Concert.create(
-                detail.kopisConcertId(), venue, detail.title(), detail.genreName(), startDate,
-                endDate, detail.posterUrl(), syncedAt)));
+                detail.kopisConcertId(), venue, detail.title(), genre, startDate, endDate,
+                detail.posterUrl(), syncedAt)));
   }
 
   private LocalDate parseDate(String kopisDate) {
     try {
       return LocalDate.parse(kopisDate, KOPIS_RESPONSE_DATE_FORMAT);
     } catch (DateTimeParseException | NullPointerException exception) {
+      throw new BusinessException(ConcertErrorCode.KOPIS_RESPONSE_INVALID);
+    }
+  }
+
+  private Genre parseGenre(String kopisGenreName) {
+    try {
+      return Genre.fromLabel(kopisGenreName);
+    } catch (IllegalArgumentException exception) {
       throw new BusinessException(ConcertErrorCode.KOPIS_RESPONSE_INVALID);
     }
   }

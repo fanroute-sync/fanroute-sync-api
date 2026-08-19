@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.entity.Venue;
 import com.fanroute.sync.support.AbstractRepositoryTest;
 
@@ -54,7 +55,7 @@ class ConcertRepositoryTest extends AbstractRepositoryTest {
     concertRepository.saveAndFlush(createConcert());
 
     Page<Concert> page = concertRepository.findByEndDateGreaterThanEqualAndGenreName(
-        LocalDate.of(2026, 1, 1), "대중음악", PageRequest.of(0, 20));
+        LocalDate.of(2026, 1, 1), Genre.POPULAR_MUSIC, PageRequest.of(0, 20));
 
     assertThat(page.getContent()).isNotEmpty();
     assertThat(Hibernate.isInitialized(page.getContent().get(0).getVenue())).isTrue();
@@ -64,7 +65,7 @@ class ConcertRepositoryTest extends AbstractRepositoryTest {
     Venue venue = venueRepository.saveAndFlush(
         Venue.create("FC001", "테스트홀", "부산 해운대구", 35.1, 129.0));
     return Concert.create(
-        "PF001", venue, "테스트 공연", "대중음악", LocalDate.of(2026, 9, 1),
+        "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC, LocalDate.of(2026, 9, 1),
         LocalDate.of(2026, 9, 2), "poster.jpg", Instant.now());
   }
 }

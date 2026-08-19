@@ -18,13 +18,13 @@ class ConcertTest {
     Instant syncedAt = Instant.parse("2026-08-19T00:00:00Z");
 
     Concert concert = Concert.create(
-        "PF001", venue, "테스트 공연", "대중음악",
+        "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC,
         LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2), "poster.jpg", syncedAt);
 
     assertThat(concert.getKopisConcertId()).isEqualTo("PF001");
     assertThat(concert.getVenue()).isSameAs(venue);
     assertThat(concert.getTitle()).isEqualTo("테스트 공연");
-    assertThat(concert.getGenreName()).isEqualTo("대중음악");
+    assertThat(concert.getGenreName()).isEqualTo(Genre.POPULAR_MUSIC);
     assertThat(concert.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     assertThat(concert.getEndDate()).isEqualTo(LocalDate.of(2026, 9, 2));
     assertThat(concert.getPosterUrl()).isEqualTo("poster.jpg");
@@ -37,17 +37,17 @@ class ConcertTest {
     Instant firstSync = Instant.parse("2026-08-19T00:00:00Z");
     Instant secondSync = Instant.parse("2026-08-20T00:00:00Z");
     Concert concert = Concert.create(
-        "PF001", venue, "테스트 공연", "대중음악",
+        "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC,
         LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2), "poster.jpg", firstSync);
     Venue newVenue = Venue.create("FC002", "다른 홀", "부산 사상구", 35.2, 129.1);
 
     concert.updateFromSync(
-        newVenue, "변경된 공연명", "무용", LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 6),
+        newVenue, "변경된 공연명", Genre.DANCE, LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 6),
         "new-poster.jpg", secondSync);
 
     assertThat(concert.getVenue()).isSameAs(newVenue);
     assertThat(concert.getTitle()).isEqualTo("변경된 공연명");
-    assertThat(concert.getGenreName()).isEqualTo("무용");
+    assertThat(concert.getGenreName()).isEqualTo(Genre.DANCE);
     assertThat(concert.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 5));
     assertThat(concert.getEndDate()).isEqualTo(LocalDate.of(2026, 9, 6));
     assertThat(concert.getPosterUrl()).isEqualTo("new-poster.jpg");

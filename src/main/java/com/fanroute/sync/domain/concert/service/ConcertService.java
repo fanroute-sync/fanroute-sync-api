@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.repository.ConcertRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
@@ -23,9 +24,9 @@ public class ConcertService {
   private final ConcertRepository concertRepository;
   private final Clock clock;
 
-  public Page<Concert> getConcerts(String genreName, Pageable pageable) {
+  public Page<Concert> getConcerts(Genre genreName, Pageable pageable) {
     LocalDate today = LocalDate.now(clock);
-    if (genreName == null || genreName.isBlank()) {
+    if (genreName == null) {
       return concertRepository.findByEndDateGreaterThanEqual(today, pageable);
     }
     return concertRepository.findByEndDateGreaterThanEqualAndGenreName(

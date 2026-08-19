@@ -42,7 +42,7 @@ public class Concert extends BaseTimeEntity {
   private String title;
 
   @Column(name = "genre_name", length = 50)
-  private String genreName;
+  private Genre genreName;
 
   @Column(name = "start_date", nullable = false)
   private LocalDate startDate;
@@ -56,7 +56,7 @@ public class Concert extends BaseTimeEntity {
   @Column(name = "last_synced_at", nullable = false)
   private Instant lastSyncedAt;
 
-  private Concert(String kopisConcertId, Venue venue, String title, String genreName,
+  private Concert(String kopisConcertId, Venue venue, String title, Genre genreName,
       LocalDate startDate, LocalDate endDate, String posterUrl, Instant lastSyncedAt) {
     this.kopisConcertId = kopisConcertId;
     this.venue = venue;
@@ -69,13 +69,13 @@ public class Concert extends BaseTimeEntity {
   }
 
   public static Concert create(String kopisConcertId, Venue venue, String title,
-      String genreName, LocalDate startDate, LocalDate endDate, String posterUrl,
+      Genre genreName, LocalDate startDate, LocalDate endDate, String posterUrl,
       Instant lastSyncedAt) {
     return new Concert(
         kopisConcertId, venue, title, genreName, startDate, endDate, posterUrl, lastSyncedAt);
   }
 
-  public void updateFromSync(Venue venue, String title, String genreName, LocalDate startDate,
+  public void updateFromSync(Venue venue, String title, Genre genreName, LocalDate startDate,
       LocalDate endDate, String posterUrl, Instant syncedAt) {
     this.venue = venue;
     this.title = title;

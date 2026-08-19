@@ -20,6 +20,9 @@ public enum ConcertErrorCode implements BaseCode {
   KOPIS_RESPONSE_INVALID(
       HttpStatus.BAD_GATEWAY, "CONCERT_KOPIS_RESPONSE_INVALID", "KOPIS 응답을 처리할 수 없습니다."),
 
+  INVALID_GENRE(
+      HttpStatus.BAD_REQUEST, "CONCERT_INVALID_GENRE", "존재하지 않는 장르입니다."),
+
   ADMIN_ACCESS_DENIED(
       HttpStatus.FORBIDDEN, "CONCERT_ADMIN_ACCESS_DENIED", "관리자만 접근할 수 있습니다.");
 

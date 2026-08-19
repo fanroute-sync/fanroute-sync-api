@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -30,6 +31,7 @@ import com.fanroute.sync.domain.concert.client.KopisClient;
 import com.fanroute.sync.domain.concert.config.KopisProperties;
 import com.fanroute.sync.domain.concert.dto.KopisDto;
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.entity.Venue;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.repository.ConcertRepository;
@@ -80,7 +82,7 @@ class ConcertSyncServiceTest {
     Concert saved = captor.getValue();
     assertThat(saved.getKopisConcertId()).isEqualTo("PF001");
     assertThat(saved.getTitle()).isEqualTo("테스트 공연");
-    assertThat(saved.getGenreName()).isEqualTo("대중음악");
+    assertThat(saved.getGenreName()).isEqualTo(Genre.POPULAR_MUSIC);
     assertThat(saved.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     assertThat(saved.getEndDate()).isEqualTo(LocalDate.of(2026, 9, 2));
   }
@@ -90,7 +92,7 @@ class ConcertSyncServiceTest {
   void updatesExistingPerformanceAndVenue() {
     Venue existingVenue = Venue.create("FC001", "옛 이름", "옛 주소", 0.0, 0.0);
     Concert existingConcert = Concert.create(
-        "PF001", existingVenue, "옛 공연명", "연극", LocalDate.of(2020, 1, 1),
+        "PF001", existingVenue, "옛 공연명", Genre.PLAY, LocalDate.of(2020, 1, 1),
         LocalDate.of(2020, 1, 2), null, Instant.parse("2020-01-01T00:00:00Z"));
     when(kopisClient.getPerformanceDetail("PF001", SERVICE_KEY))
         .thenReturn(new KopisDto.PerformanceDetailResponse(performanceDetail()));
@@ -122,6 +124,38 @@ class ConcertSyncServiceTest {
         .isInstanceOfSatisfying(BusinessException.class,
             exception -> assertThat(exception.getErrorCode())
                 .isEqualTo(ConcertErrorCode.KOPIS_RESPONSE_INVALID));
+  }
+
+  @Test
+  @DisplayName("KOPIS 응답의 장르명이 알 수 없는 값이면 응답 오류로 변환한다")
+  void rejectsUnknownGenre() {
+    KopisDto.PerformanceDetail detailWithUnknownGenre = new KopisDto.PerformanceDetail(
+        "PF001", "FC001", "테스트 공연", "2026.09.01", "2026.09.02", "테스트홀", "poster.jpg", "알수없는장르",
+        "공연중");
+    when(kopisClient.getPerformanceDetail("PF001", SERVICE_KEY))
+        .thenReturn(new KopisDto.PerformanceDetailResponse(detailWithUnknownGenre));
+
+    assertThatThrownBy(() -> service.syncPerformance("PF001"))
+        .isInstanceOfSatisfying(BusinessException.class,
+            exception -> assertThat(exception.getErrorCode())
+                .isEqualTo(ConcertErrorCode.KOPIS_RESPONSE_INVALID));
+    verifyNoInteractions(venueRepository, concertRepository);
+  }
+
+  @Test
+  @DisplayName("KOPIS 응답의 날짜 형식이 잘못되면 DB 변경 전에 응답 오류로 변환한다")
+  void rejectsInvalidDateBeforePersistence() {
+    KopisDto.PerformanceDetail detailWithInvalidDate = new KopisDto.PerformanceDetail(
+        "PF001", "FC001", "테스트 공연", "2026-09-01", "2026.09.02", "테스트홀",
+        "poster.jpg", "대중음악", "공연중");
+    when(kopisClient.getPerformanceDetail("PF001", SERVICE_KEY))
+        .thenReturn(new KopisDto.PerformanceDetailResponse(detailWithInvalidDate));
+
+    assertThatThrownBy(() -> service.syncPerformance("PF001"))
+        .isInstanceOfSatisfying(BusinessException.class,
+            exception -> assertThat(exception.getErrorCode())
+                .isEqualTo(ConcertErrorCode.KOPIS_RESPONSE_INVALID));
+    verifyNoInteractions(venueRepository, concertRepository);
   }
 
   @Test

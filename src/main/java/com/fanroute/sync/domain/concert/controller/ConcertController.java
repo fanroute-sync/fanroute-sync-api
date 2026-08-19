@@ -13,13 +13,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fanroute.sync.domain.concert.dto.ConcertDto;
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.service.ConcertService;
+import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -39,18 +42,34 @@ public class ConcertController {
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "200", description = "공연 목록 조회 성공", useReturnTypeSchema = true)
   })
+  @ApiErrorCodeExamples(type = ConcertErrorCode.class, names = "INVALID_GENRE")
   @GetMapping
   public ResponseEntity<ApiResponse<Page<ConcertDto.Response>>> getConcerts(
-      @Parameter(description = "장르명으로 필터링(예: 대중음악). 생략 시 전체 장르 조회")
+      @Parameter(description = "장르명으로 필터링. 생략 시 전체 장르 조회")
+      @Schema(allowableValues = {
+          "연극", "무용(서양/한국무용)", "대중무용", "서양음악(클래식)", "한국음악(국악)", "대중음악", "복합", "서커스/마술",
+          "뮤지컬"})
       @RequestParam(required = false) String genreName,
       @Parameter(description = "페이지 번호(0부터 시작)")
       @RequestParam(defaultValue = "0") int page,
       @Parameter(description = "페이지 크기(최대 " + MAX_PAGE_SIZE + ")")
       @RequestParam(defaultValue = "20") int size) {
+    Genre genre = parseGenre(genreName);
     Pageable pageable = toPageable(page, size);
     Page<ConcertDto.Response> concerts =
-        concertService.getConcerts(genreName, pageable).map(ConcertDto.Response::from);
+        concertService.getConcerts(genre, pageable).map(ConcertDto.Response::from);
     return ApiResponse.ok(concerts).toResponseEntity();
+  }
+
+  private Genre parseGenre(String genreName) {
+    if (genreName == null || genreName.isBlank()) {
+      return null;
+    }
+    try {
+      return Genre.fromLabel(genreName);
+    } catch (IllegalArgumentException exception) {
+      throw new BusinessException(ConcertErrorCode.INVALID_GENRE);
+    }
   }
 
   private Pageable toPageable(int page, int size) {

@@ -26,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
 import com.fanroute.sync.domain.concert.entity.Venue;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.repository.ConcertRepository;
@@ -66,10 +67,11 @@ class ConcertServiceTest {
   void getsConcertsFilteredByGenre() {
     Pageable pageable = PageRequest.of(0, 20);
     Page<Concert> page = new PageImpl<>(List.of());
-    when(concertRepository.findByEndDateGreaterThanEqualAndGenreName(TODAY, "대중음악", pageable))
+    when(concertRepository.findByEndDateGreaterThanEqualAndGenreName(
+        TODAY, Genre.POPULAR_MUSIC, pageable))
         .thenReturn(page);
 
-    Page<Concert> result = concertService.getConcerts("대중음악", pageable);
+    Page<Concert> result = concertService.getConcerts(Genre.POPULAR_MUSIC, pageable);
 
     assertThat(result).isSameAs(page);
     verify(concertRepository, never()).findByEndDateGreaterThanEqual(any(), any());
@@ -80,7 +82,7 @@ class ConcertServiceTest {
   void getsConcertById() {
     Venue venue = Venue.create("FC001", "테스트홀", "부산", 35.1, 129.0);
     Concert concert = Concert.create(
-        "PF001", venue, "테스트 공연", "대중음악", TODAY, TODAY.plusDays(1), "poster.jpg",
+        "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC, TODAY, TODAY.plusDays(1), "poster.jpg",
         Instant.now());
     when(concertRepository.findWithVenueById(1L)).thenReturn(Optional.of(concert));
 
