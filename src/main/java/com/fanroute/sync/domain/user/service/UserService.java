@@ -8,10 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.entity.vo.UserRole;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.global.config.AdminProperties;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +27,7 @@ public class UserService {
   private final UserRepository userRepository;
   private final NicknameGenerator nicknameGenerator;
   private final SessionRevoker sessionRevoker;
+  private final AdminProperties adminProperties;
 
   /**
    * 신규 사용자를 생성합니다.
@@ -40,6 +43,7 @@ public class UserService {
 
     String nickname = generateUniqueNickname();
     User user = User.create(nickname, authProvider, providerUserId, email);
+    user.updateRole(resolveRole(email));
 
     try {
       // 즉시 flush로 해당 트랜잭션에서 예외
@@ -83,10 +87,15 @@ public class UserService {
     return userRepository.findByAuthProviderAndProviderUserId(authProvider, providerUserId)
         .map(user -> {
           validateAccessible(user);
+          user.updateRole(resolveRole(email));
           return new SocialLoginResult(user, false);
         })
         .orElseGet(
             () -> new SocialLoginResult(createUser(authProvider, providerUserId, email), true));
+  }
+
+  private UserRole resolveRole(String email) {
+    return adminProperties.isBootstrapAdmin(email) ? UserRole.ADMIN : UserRole.USER;
   }
 
   public record SocialLoginResult(User user, boolean newUser) {

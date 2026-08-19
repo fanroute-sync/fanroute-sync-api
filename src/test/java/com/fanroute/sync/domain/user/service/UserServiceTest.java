@@ -23,10 +23,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.entity.vo.UserRole;
 import com.fanroute.sync.domain.user.entity.vo.UserStatus;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
 import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
+import com.fanroute.sync.global.config.AdminProperties;
 import com.fanroute.sync.support.UserFixture;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,11 +43,14 @@ class UserServiceTest {
   @Mock
   private SessionRevoker sessionRevoker;
 
+  private AdminProperties adminProperties;
+
   private UserService userService;
 
   @BeforeEach
   void setUp() {
-    userService = new UserService(userRepository, nicknameGenerator, sessionRevoker);
+    adminProperties = new AdminProperties(java.util.List.of("admin@example.com"));
+    userService = new UserService(userRepository, nicknameGenerator, sessionRevoker, adminProperties);
   }
 
   @Test
@@ -64,6 +69,28 @@ class UserServiceTest {
         .existsByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1");
     verify(userRepository).existsByNickname("route");
     verify(userRepository).saveAndFlush(any(User.class));
+  }
+
+  @Test
+  @DisplayName("관리자 부트스트랩 이메일로 가입하면 ADMIN 권한이 부여된다")
+  void createsAdminUserForBootstrapEmail() {
+    when(nicknameGenerator.generate()).thenReturn("route");
+    when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    User created = userService.createUser(AuthProvider.GOOGLE, "google-1", "admin@example.com");
+
+    assertEquals(UserRole.ADMIN, created.getRole());
+  }
+
+  @Test
+  @DisplayName("관리자 부트스트랩 목록에 없는 이메일로 가입하면 USER 권한이 부여된다")
+  void createsRegularUserForNonBootstrapEmail() {
+    when(nicknameGenerator.generate()).thenReturn("route");
+    when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    User created = userService.createUser(AuthProvider.GOOGLE, "google-1", "user@example.com");
+
+    assertEquals(UserRole.USER, created.getRole());
   }
 
   @Test
@@ -315,6 +342,31 @@ class UserServiceTest {
     assertSame(user, result.user());
     assertTrue(result.newUser());
     assertEquals("user@example.com", result.user().getEmail());
+  }
+
+  @Test
+  @DisplayName("기존 사용자가 관리자 부트스트랩 이메일로 로그인하면 ADMIN 권한으로 동기화된다")
+  void grantsAdminRoleOnLoginForBootstrapEmail() {
+    User user = UserFixture.activeUser();
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.of(user));
+
+    userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1", "admin@example.com");
+
+    assertEquals(UserRole.ADMIN, user.getRole());
+  }
+
+  @Test
+  @DisplayName("부트스트랩 목록에서 빠진 기존 관리자는 다음 로그인에 권한을 회수당한다")
+  void revokesAdminRoleOnLoginWhenRemovedFromBootstrapList() {
+    User user = UserFixture.activeUser();
+    user.updateRole(UserRole.ADMIN);
+    when(userRepository.findByAuthProviderAndProviderUserId(AuthProvider.GOOGLE, "google-1"))
+        .thenReturn(Optional.of(user));
+
+    userService.findOrCreateSocialUser(AuthProvider.GOOGLE, "google-1", "user@example.com");
+
+    assertEquals(UserRole.USER, user.getRole());
   }
 
   @Test
