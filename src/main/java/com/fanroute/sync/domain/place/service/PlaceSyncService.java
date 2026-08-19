@@ -3,7 +3,6 @@ package com.fanroute.sync.domain.place.service;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.fanroute.sync.domain.place.client.TourApiClient;
@@ -33,17 +32,6 @@ public class PlaceSyncService {
   private final TourApiClient tourApiClient;
   private final TourApiProperties tourApiProperties;
   private final PlaceUpsertService placeUpsertService;
-
-  @Scheduled(cron = "${tour-api.sync-cron:0 0 5 * * *}")
-  public void syncPlacesOnSchedule() {
-    for (SyncOutcome outcome : syncAll()) {
-      log.info(
-          "TourAPI 장소 정기 동기화 완료: category={}, success={}, upsertedCount={}, "
-              + "failureMessage={}",
-          outcome.category(), outcome.success(), outcome.upsertedCount(),
-          outcome.failureMessage());
-    }
-  }
 
   /** 카테고리별 실패를 격리해 나머지 동기화를 계속합니다. */
   public List<SyncOutcome> syncAll() {
