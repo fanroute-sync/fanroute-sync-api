@@ -33,6 +33,12 @@ spring:
     properties:
       "[hibernate.jdbc.time_zone]": UTC
 
+  batch:
+    job:
+      enabled: false # 애플리케이션 시작 시 Job 자동 실행 방지
+    jdbc:
+      initialize-schema: always # Spring Batch 메타데이터 테이블 생성
+
 auth:
   google:
     client-id: ${GOOGLE_CLIENT_ID}
@@ -67,11 +73,13 @@ kopis:
   service-key: ${KOPIS_SERVICE_KEY}
   # KOPIS 지역코드(signgucode) 상위 코드. 정확한 부산 코드값은 KOPIS 공통코드 문서로 확인 필요
   region-code: ${KOPIS_REGION_CODE:26}
+  sync-max-items: ${KOPIS_SYNC_MAX_ITEMS:0}
 
 tour-api:
   service-key: ${TOUR_API_KEY}
   # TourAPI 4.4 법정동 시도 코드(lDongRegnCd), 부산=26
   legal-dong-region-code: ${TOUR_API_LEGAL_DONG_REGION_CODE:26}
+  sync-max-items: ${TOUR_API_SYNC_MAX_ITEMS:0}
 
 admin:
   api-key: ${ADMIN_API_KEY}
