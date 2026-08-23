@@ -112,6 +112,46 @@ class OpenApiConfigTest {
         .containsKey("SCHEDULE_ITINERARY_DAY_NOT_FOUND");
   }
 
+  @Test
+  @DisplayName("AI 일정 생성 재시도 API의 Swagger 오류 응답을 생성한다")
+  void addsAiGenerationRetryErrorResponses() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    Method method = AiItineraryGenerationController.class.getMethod("retryGeneration",
+        org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("202", new ApiResponse().description("접수")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    assertThat(operation.getResponses()).containsKeys("202", "400", "401", "404");
+    assertThat(operation.getResponses().get("400").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_INVALID_AI_ITINERARY_GENERATION_STATUS");
+    assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_AI_ITINERARY_GENERATION_NOT_FOUND");
+  }
+
+  @Test
+  @DisplayName("AI 일정 생성 취소 API의 Swagger 오류 응답을 생성한다")
+  void addsAiGenerationCancelErrorResponses() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    Method method = AiItineraryGenerationController.class.getMethod("cancelGeneration",
+        org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("200", new ApiResponse().description("성공")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    assertThat(operation.getResponses()).containsKeys("200", "400", "401", "404");
+    assertThat(operation.getResponses().get("400").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_INVALID_AI_ITINERARY_GENERATION_STATUS");
+    assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_AI_ITINERARY_GENERATION_NOT_FOUND");
+  }
+
   private static class TestController {
 
     @ApiErrorCodeExamples(type = ErrorCode.class, names = "INVALID_PARAMETER")
