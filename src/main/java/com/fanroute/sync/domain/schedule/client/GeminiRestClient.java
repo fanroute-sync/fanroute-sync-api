@@ -40,7 +40,7 @@ public class GeminiRestClient {
         .body(new GeminiDto.GenerateContentRequest(
             List.of(new GeminiDto.Content(List.of(new GeminiDto.Part(createPrompt(input))))),
             new GeminiDto.GenerationConfig(new GeminiDto.ResponseFormat(
-                new GeminiDto.StructuredText("application/json", ITINERARY_SCHEMA)))))
+                new GeminiDto.StructuredText("APPLICATION_JSON", ITINERARY_SCHEMA)))))
         .retrieve()
         .body(GeminiDto.GenerateContentResponse.class);
 

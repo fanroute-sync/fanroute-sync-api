@@ -39,7 +39,7 @@ class GeminiRestClientTest {
         .andExpect(method(HttpMethod.POST))
         .andExpect(header("x-goog-api-key", "test-key"))
         .andExpect(content().string(containsString("\"responseFormat\"")))
-        .andExpect(content().string(containsString("\"mimeType\":\"application/json\"")))
+        .andExpect(content().string(containsString("\"mimeType\":\"APPLICATION_JSON\"")))
         .andRespond(withSuccess("""
             {
               "candidates": [
