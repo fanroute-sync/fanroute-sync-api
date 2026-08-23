@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.place.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -14,4 +15,6 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
   Optional<Place> findByContentId(String contentId);
 
   Page<Place> findByCategory(PlaceCategory category, Pageable pageable);
+
+  List<Place> findTop20ByOrderByIdAsc();
 }

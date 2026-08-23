@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.service.AiItineraryGenerationService;
+import com.fanroute.sync.domain.schedule.service.AiItineraryGenerationAsyncService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.service.CurrentUserResolver;
 import com.fanroute.sync.global.common.response.ApiResponse;
@@ -34,8 +35,10 @@ public class AiItineraryGenerationController {
 
   private final CurrentUserResolver currentUserResolver;
   private final AiItineraryGenerationService generationService;
+  private final AiItineraryGenerationAsyncService generationAsyncService;
 
-  @Operation(summary = "AI 일정 생성 작업 요청")
+  @Operation(summary = "AI 일정 생성 작업 요청",
+      description = "생성 작업을 접수한 뒤 백그라운드에서 실행합니다. 상태 조회 API로 완료 여부를 확인합니다.")
   @ApiResponses({
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "202", description = "AI 일정 생성 작업 요청 성공", useReturnTypeSchema = true)
@@ -46,6 +49,7 @@ public class AiItineraryGenerationController {
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long itineraryDayId) {
     User user = currentUserResolver.getCurrentUser(jwt);
     AiItineraryGenerationDto.CreateResponse response = generationService.request(user, itineraryDayId);
+    generationAsyncService.generate(response.generationId());
     return ApiResponse.of(SuccessCode.ACCEPTED, response).toResponseEntity();
   }
 
@@ -62,7 +66,8 @@ public class AiItineraryGenerationController {
     return ApiResponse.ok(generationService.getStatus(user, generationId)).toResponseEntity();
   }
 
-  @Operation(summary = "실패한 AI 일정 생성 작업 재시도")
+  @Operation(summary = "실패한 AI 일정 생성 작업 재시도",
+      description = "새 생성 작업을 접수한 뒤 백그라운드에서 실행합니다.")
   @ApiResponses({
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "202", description = "AI 일정 생성 작업 재시도 접수 성공", useReturnTypeSchema = true)
@@ -73,7 +78,9 @@ public class AiItineraryGenerationController {
   public ResponseEntity<ApiResponse<AiItineraryGenerationDto.CreateResponse>> retryGeneration(
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
     User user = currentUserResolver.getCurrentUser(jwt);
-    return ApiResponse.of(SuccessCode.ACCEPTED, generationService.retry(user, generationId))
+    AiItineraryGenerationDto.CreateResponse response = generationService.retry(user, generationId);
+    generationAsyncService.generate(response.generationId());
+    return ApiResponse.of(SuccessCode.ACCEPTED, response)
         .toResponseEntity();
   }
 

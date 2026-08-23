@@ -1,9 +1,13 @@
 package com.fanroute.sync.domain.schedule.dto;
 
 import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.util.List;
 
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
+import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -33,5 +37,22 @@ public final class AiItineraryGenerationDto {
       return new StatusResponse(generation.getId(), generation.getItineraryDay().getId(),
           generation.getItineraryDay().getDate(), generation.getStatus());
     }
+  }
+
+  public record GenerationInput(
+      LocalDate date,
+      Instant arrivalAt,
+      Instant departureAt,
+      TravelIntensityType travelIntensity,
+      List<String> companions,
+      List<String> preferences,
+      List<FixedItem> fixedItems,
+      List<PlaceCandidate> placeCandidates) {
+  }
+
+  public record FixedItem(LocalTime scheduledTime, String title, Integer durationMinutes) {
+  }
+
+  public record PlaceCandidate(Long id, String name, String address) {
   }
 }
