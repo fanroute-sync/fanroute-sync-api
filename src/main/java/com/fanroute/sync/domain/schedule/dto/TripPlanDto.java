@@ -28,4 +28,12 @@ public final class TripPlanDto {
 
   public record ItineraryDayResponse(Long id, LocalDate date, boolean concertDay) {
   }
+
+  public record SummaryResponse(Long tripPlanId, Long concertId, String concertTitle,
+      Instant arrivalAt, Instant departureAt) {
+  }
+
+  public record DetailResponse(Long tripPlanId, Long concertId, String concertTitle,
+      Instant arrivalAt, Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
+  }
 }

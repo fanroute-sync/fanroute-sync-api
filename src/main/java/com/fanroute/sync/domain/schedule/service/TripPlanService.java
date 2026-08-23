@@ -16,6 +16,8 @@ import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
+import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
+import com.fanroute.sync.domain.schedule.repository.AccommodationRepository;
 import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.global.common.exception.BusinessException;
@@ -31,6 +33,8 @@ public class TripPlanService {
 
   private final TripPlanRepository tripPlanRepository;
   private final ItineraryDayRepository itineraryDayRepository;
+  private final ItineraryItemRepository itineraryItemRepository;
+  private final AccommodationRepository accommodationRepository;
   private final ConcertService concertService;
 
   public TripPlanDto.CreateResponse create(User user, TripPlanDto.CreateRequest request) {
@@ -50,6 +54,49 @@ public class TripPlanService {
             .map(day -> new TripPlanDto.ItineraryDayResponse(day.getId(), day.getDate(),
                 day.isConcertDay()))
             .toList());
+  }
+
+  @Transactional(readOnly = true)
+  public List<TripPlanDto.SummaryResponse> getMyTripPlans(User user) {
+    return tripPlanRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
+        .map(this::toSummary).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public TripPlanDto.DetailResponse getTripPlan(User user, Long tripPlanId) {
+    TripPlan tripPlan = getOwnedTripPlan(user, tripPlanId);
+    List<TripPlanDto.ItineraryDayResponse> days = itineraryDayRepository
+        .findByTripPlanIdOrderByDateAsc(tripPlanId).stream()
+        .map(day -> new TripPlanDto.ItineraryDayResponse(day.getId(), day.getDate(), day.isConcertDay()))
+        .toList();
+    return new TripPlanDto.DetailResponse(tripPlan.getId(), concertId(tripPlan), concertTitle(tripPlan),
+        tripPlan.getArrivalAt(), tripPlan.getDepartureAt(), days);
+  }
+
+  public void deleteTripPlan(User user, Long tripPlanId) {
+    getOwnedTripPlan(user, tripPlanId);
+    itineraryItemRepository.deleteByItineraryDayTripPlanId(tripPlanId);
+    itineraryDayRepository.deleteByTripPlanId(tripPlanId);
+    accommodationRepository.deleteByTripPlanId(tripPlanId);
+    tripPlanRepository.deleteById(tripPlanId);
+  }
+
+  private TripPlan getOwnedTripPlan(User user, Long tripPlanId) {
+    return tripPlanRepository.findByIdAndUserId(tripPlanId, user.getId())
+        .orElseThrow(() -> new BusinessException(ScheduleErrorCode.TRIP_PLAN_NOT_FOUND));
+  }
+
+  private TripPlanDto.SummaryResponse toSummary(TripPlan tripPlan) {
+    return new TripPlanDto.SummaryResponse(tripPlan.getId(), concertId(tripPlan), concertTitle(tripPlan),
+        tripPlan.getArrivalAt(), tripPlan.getDepartureAt());
+  }
+
+  private Long concertId(TripPlan tripPlan) {
+    return tripPlan.getConcert() == null ? null : tripPlan.getConcert().getId();
+  }
+
+  private String concertTitle(TripPlan tripPlan) {
+    return tripPlan.getConcert() == null ? null : tripPlan.getConcert().getTitle();
   }
 
   private List<ItineraryDay> createItineraryDays(TripPlan tripPlan, TripPlanDto.CreateRequest request,
