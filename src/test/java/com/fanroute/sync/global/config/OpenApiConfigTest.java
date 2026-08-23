@@ -99,7 +99,7 @@ class OpenApiConfigTest {
   void addsAiGenerationRequestErrorResponses() throws NoSuchMethodException {
     OpenApiConfig config = new OpenApiConfig();
     OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
-    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null, null);
     Method method = AiItineraryGenerationController.class.getMethod("requestGeneration",
         org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
     Operation operation = new Operation().responses(
@@ -117,7 +117,7 @@ class OpenApiConfigTest {
   void addsAiGenerationRetryErrorResponses() throws NoSuchMethodException {
     OpenApiConfig config = new OpenApiConfig();
     OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
-    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null, null);
     Method method = AiItineraryGenerationController.class.getMethod("retryGeneration",
         org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
     Operation operation = new Operation().responses(
@@ -137,7 +137,7 @@ class OpenApiConfigTest {
   void addsAiGenerationCancelErrorResponses() throws NoSuchMethodException {
     OpenApiConfig config = new OpenApiConfig();
     OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
-    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null, null);
     Method method = AiItineraryGenerationController.class.getMethod("cancelGeneration",
         org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
     Operation operation = new Operation().responses(
