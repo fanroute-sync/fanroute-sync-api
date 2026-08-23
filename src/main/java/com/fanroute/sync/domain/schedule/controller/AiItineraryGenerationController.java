@@ -3,6 +3,7 @@ package com.fanroute.sync.domain.schedule.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,5 +60,34 @@ public class AiItineraryGenerationController {
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
     User user = currentUserResolver.getCurrentUser(jwt);
     return ApiResponse.ok(generationService.getStatus(user, generationId)).toResponseEntity();
+  }
+
+  @Operation(summary = "실패한 AI 일정 생성 작업 재시도")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "202", description = "AI 일정 생성 작업 재시도 접수 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = {"AI_ITINERARY_GENERATION_NOT_FOUND", "INVALID_AI_ITINERARY_GENERATION_STATUS"})
+  @PostMapping("/ai-itinerary-generations/{generationId}/retry")
+  public ResponseEntity<ApiResponse<AiItineraryGenerationDto.CreateResponse>> retryGeneration(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
+    User user = currentUserResolver.getCurrentUser(jwt);
+    return ApiResponse.of(SuccessCode.ACCEPTED, generationService.retry(user, generationId))
+        .toResponseEntity();
+  }
+
+  @Operation(summary = "대기 중인 AI 일정 생성 작업 취소")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "AI 일정 생성 작업 취소 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = {"AI_ITINERARY_GENERATION_NOT_FOUND", "INVALID_AI_ITINERARY_GENERATION_STATUS"})
+  @DeleteMapping("/ai-itinerary-generations/{generationId}")
+  public ResponseEntity<ApiResponse<AiItineraryGenerationDto.StatusResponse>> cancelGeneration(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
+    User user = currentUserResolver.getCurrentUser(jwt);
+    return ApiResponse.ok(generationService.cancel(user, generationId)).toResponseEntity();
   }
 }

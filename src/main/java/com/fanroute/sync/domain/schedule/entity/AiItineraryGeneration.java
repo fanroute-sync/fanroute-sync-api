@@ -43,4 +43,8 @@ public class AiItineraryGeneration extends BaseTimeEntity {
   public static AiItineraryGeneration create(ItineraryDay itineraryDay) {
     return new AiItineraryGeneration(itineraryDay);
   }
+
+  public void cancel() {
+    this.status = AiItineraryGenerationStatus.CANCELLED;
+  }
 }

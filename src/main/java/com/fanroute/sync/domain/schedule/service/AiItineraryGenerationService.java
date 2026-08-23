@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
+import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
@@ -31,10 +32,23 @@ public class AiItineraryGenerationService {
 
   @Transactional(readOnly = true)
   public AiItineraryGenerationDto.StatusResponse getStatus(User user, Long generationId) {
-    AiItineraryGeneration generation = generationRepository
-        .findByIdAndItineraryDayTripPlanUserId(generationId, user.getId())
-        .orElseThrow(() -> new BusinessException(
-            ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+    AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
+    return AiItineraryGenerationDto.StatusResponse.from(generation);
+  }
+
+  public AiItineraryGenerationDto.CreateResponse retry(User user, Long generationId) {
+    AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
+    validateStatus(generation, AiItineraryGenerationStatus.FAILED);
+
+    AiItineraryGeneration retryGeneration = generationRepository.save(
+        AiItineraryGeneration.create(generation.getItineraryDay()));
+    return AiItineraryGenerationDto.CreateResponse.from(retryGeneration);
+  }
+
+  public AiItineraryGenerationDto.StatusResponse cancel(User user, Long generationId) {
+    AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
+    validateStatus(generation, AiItineraryGenerationStatus.PENDING);
+    generation.cancel();
     return AiItineraryGenerationDto.StatusResponse.from(generation);
   }
 
@@ -42,5 +56,18 @@ public class AiItineraryGenerationService {
     return itineraryDayRepository.findById(itineraryDayId)
         .filter(day -> day.getTripPlan().getUser().getId().equals(user.getId()))
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.ITINERARY_DAY_NOT_FOUND));
+  }
+
+  private AiItineraryGeneration getOwnedGeneration(User user, Long generationId) {
+    return generationRepository.findByIdAndItineraryDayTripPlanUserId(generationId, user.getId())
+        .orElseThrow(() -> new BusinessException(
+            ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+  }
+
+  private void validateStatus(AiItineraryGeneration generation,
+      AiItineraryGenerationStatus expectedStatus) {
+    if (generation.getStatus() != expectedStatus) {
+      throw new BusinessException(ScheduleErrorCode.INVALID_AI_ITINERARY_GENERATION_STATUS);
+    }
   }
 }
