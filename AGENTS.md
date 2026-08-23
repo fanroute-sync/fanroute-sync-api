@@ -2,6 +2,18 @@
 
 This project is for a competition. We use Codex as the main coding assistant, so changes should be small, clear, and easy for teammates to review.
 
+## Project Documentation
+
+The following documents are versioned project sources of truth and must be read before changing related functionality.
+
+- `docs/project/wireframe.md` — screen flows and interaction policies
+- `docs/project/planning.md` — MVP scope, domain responsibilities, and product decisions
+- `docs/project/coding-rules.md` — project coding conventions and documentation rules
+
+- Keep these documents in sync when a feature, policy, or implementation decision changes.
+- If the ERD, wireframe, planning document, API contract, or code conflicts, record the
+  discrepancy in the issue or PR and obtain confirmation from the relevant owner before implementation.
+
 ## Core Rules
 
 ### Think Before Coding
@@ -124,12 +136,8 @@ This project is for a competition. We use Codex as the main coding assistant, so
 - The main agent must verify and synthesize subagent findings before presenting them.
 - Do not edit code during review unless the user explicitly asks for fixes.
 
-## Worklog Prompt
+## Decision Confirmation
 
-- Use `/prompts:worklog` when the team wants to leave a handoff note or project worklog.
-- Save worklogs under `context/worklog/` using `YYYY-MM-DD.md`.
-- Write worklogs in Korean unless the user explicitly asks otherwise.
-- Keep worklogs concise and useful for the next teammate or Codex session.
-- In `Decisions`, include the alternatives considered and the concrete reason for the selected option.
-- Record completed work, changed files, verification results, next steps, and remaining risks or notes.
-- Do not include secrets, API keys, tokens, credentials, customer names, or sensitive internal details.
+- Record cross-domain decisions, policy changes, and unresolved conflicts in the related issue or PR.
+- State the alternatives, selected proposal, and impact on existing contracts.
+- Obtain confirmation from the relevant domain owner or team before implementing a decision that changes a shared contract.
