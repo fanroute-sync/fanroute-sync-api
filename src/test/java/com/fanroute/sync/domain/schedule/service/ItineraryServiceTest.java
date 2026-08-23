@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -95,6 +96,24 @@ class ItineraryServiceTest {
         .isInstanceOf(BusinessException.class)
         .extracting(exception -> ((BusinessException) exception).getErrorCode())
         .isEqualTo(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+  }
+
+  @Test
+  @DisplayName("일정 항목을 재정렬할 때 유니크 제약 충돌 없이 최종 순서를 적용한다")
+  void reordersItemsWithTemporarySortOrders() {
+    ItineraryDay day = itineraryDay();
+    ItineraryItem first = item(day, 10L, 1);
+    ItineraryItem second = item(day, 20L, 2);
+    when(dayRepository.findById(1L)).thenReturn(Optional.of(day));
+    when(itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(first, second));
+
+    service().reorder(UserFixture.activeUserWithId(1L), 1L,
+        new ItineraryDto.ReorderRequest(List.of(20L, 10L)));
+
+    assertThat(first.getSortOrder()).isEqualTo(2);
+    assertThat(second.getSortOrder()).isEqualTo(1);
+    verify(itemRepository).flush();
   }
 
   private ItineraryService service() {

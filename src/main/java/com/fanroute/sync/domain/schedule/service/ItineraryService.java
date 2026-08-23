@@ -3,7 +3,10 @@ package com.fanroute.sync.domain.schedule.service;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +45,11 @@ public class ItineraryService {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
     Place place = validatePlace(request.type(), request.placeId());
-    int nextOrder = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId).size() + 1;
+    int nextOrder = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId)
+        .stream()
+        .mapToInt(ItineraryItem::getSortOrder)
+        .max()
+        .orElse(0) + 1;
     ItineraryItem item = itemRepository.save(ItineraryItem.create(day, nextOrder, request.scheduledTime(),
         request.type(), place, null, request.title(), request.durationMinutes()));
     return toItemResponse(item);
@@ -63,16 +70,24 @@ public class ItineraryService {
   }
 
   public void reorder(User user, Long dayId, ItineraryDto.ReorderRequest request) {
-    ItineraryDay day = getOwnedDay(user, dayId);
+    getOwnedDay(user, dayId);
     List<ItineraryItem> items = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId);
     Set<Long> requestedIds = new HashSet<>(request.itemIds());
-    if (requestedIds.size() != items.size() || !requestedIds.equals(items.stream().map(ItineraryItem::getId).collect(java.util.stream.Collectors.toSet()))) {
+    Set<Long> itemIds = items.stream().map(ItineraryItem::getId).collect(Collectors.toSet());
+    if (requestedIds.size() != items.size() || !requestedIds.equals(itemIds)) {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
+
+    Map<Long, ItineraryItem> itemsById = items.stream()
+        .collect(Collectors.toMap(ItineraryItem::getId, Function.identity()));
     for (int index = 0; index < request.itemIds().size(); index++) {
       Long itemId = request.itemIds().get(index);
-      items.stream().filter(item -> item.getId().equals(itemId)).findFirst()
-          .orElseThrow().changeSortOrder(index + 1);
+      itemsById.get(itemId).changeSortOrder(-(index + 1));
+    }
+    itemRepository.flush();
+    for (int index = 0; index < request.itemIds().size(); index++) {
+      Long itemId = request.itemIds().get(index);
+      itemsById.get(itemId).changeSortOrder(index + 1);
     }
   }
 
@@ -91,7 +106,8 @@ public class ItineraryService {
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.ITINERARY_ITEM_NOT_FOUND));
   }
   private Place validatePlace(ItineraryItemType type, Long placeId) {
-    if (type == ItineraryItemType.PLACE && placeId == null || type == ItineraryItemType.CUSTOM && placeId != null) {
+    if ((type == ItineraryItemType.PLACE && placeId == null)
+        || (type == ItineraryItemType.CUSTOM && placeId != null)) {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
     return placeId == null ? null : placeService.getPlace(placeId);
