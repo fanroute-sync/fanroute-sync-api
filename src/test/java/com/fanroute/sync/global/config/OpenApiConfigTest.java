@@ -10,6 +10,7 @@ import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.web.method.HandlerMethod;
 
 import com.fanroute.sync.domain.schedule.controller.ItineraryController;
+import com.fanroute.sync.domain.schedule.controller.AiItineraryGenerationController;
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
 import com.fanroute.sync.global.common.response.ErrorCode;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
@@ -91,6 +92,24 @@ class OpenApiConfigTest {
         .containsKeys("SCHEDULE_INVALID_ITINERARY_ITEM", "SCHEDULE_FIXED_ITINERARY_ITEM");
     assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
         .containsKey("SCHEDULE_ITINERARY_ITEM_NOT_FOUND");
+  }
+
+  @Test
+  @DisplayName("AI 일정 생성 요청 API의 Swagger 오류 응답을 생성한다")
+  void addsAiGenerationRequestErrorResponses() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    AiItineraryGenerationController controller = new AiItineraryGenerationController(null, null);
+    Method method = AiItineraryGenerationController.class.getMethod("requestGeneration",
+        org.springframework.security.oauth2.jwt.Jwt.class, Long.class);
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("202", new ApiResponse().description("접수")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    assertThat(operation.getResponses()).containsKeys("202", "401", "404");
+    assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_ITINERARY_DAY_NOT_FOUND");
   }
 
   private static class TestController {
