@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.web.method.HandlerMethod;
 
+import com.fanroute.sync.domain.schedule.controller.ItineraryController;
+import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
 import com.fanroute.sync.global.common.response.ErrorCode;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 
@@ -68,6 +70,27 @@ class OpenApiConfigTest {
     customizer.customize(operation, new HandlerMethod(controller, method));
 
     assertThat(operation.getResponses().get("401")).isNull();
+  }
+
+  @Test
+  @DisplayName("일정 항목 수정 API의 Swagger 오류 응답을 생성한다")
+  void addsItineraryUpdateErrorResponses() throws NoSuchMethodException {
+    OpenApiConfig config = new OpenApiConfig();
+    OperationCustomizer customizer = config.errorCodeExamplesCustomizer();
+    ItineraryController controller = new ItineraryController(null, null);
+    Method method = ItineraryController.class.getMethod("updateItem",
+        org.springframework.security.oauth2.jwt.Jwt.class, Long.class,
+        ItineraryDto.UpdateItemRequest.class);
+    Operation operation = new Operation().responses(
+        new ApiResponses().addApiResponse("200", new ApiResponse().description("성공")));
+
+    customizer.customize(operation, new HandlerMethod(controller, method));
+
+    assertThat(operation.getResponses()).containsKeys("200", "400", "401", "404");
+    assertThat(operation.getResponses().get("400").getContent().get("application/json").getExamples())
+        .containsKeys("SCHEDULE_INVALID_ITINERARY_ITEM", "SCHEDULE_FIXED_ITINERARY_ITEM");
+    assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_ITINERARY_ITEM_NOT_FOUND");
   }
 
   private static class TestController {
