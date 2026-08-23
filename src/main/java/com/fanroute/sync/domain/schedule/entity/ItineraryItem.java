@@ -78,4 +78,15 @@ public class ItineraryItem extends BaseTimeEntity {
     return new ItineraryItem(
         itineraryDay, sortOrder, scheduledTime, type, place, concert, title, durationMinutes);
   }
+
+  public void update(LocalTime scheduledTime, String title, Integer durationMinutes, Place place) {
+    this.scheduledTime = scheduledTime;
+    this.title = title;
+    this.durationMinutes = durationMinutes;
+    this.place = place;
+  }
+
+  public void changeSortOrder(int sortOrder) {
+    this.sortOrder = sortOrder;
+  }
 }
