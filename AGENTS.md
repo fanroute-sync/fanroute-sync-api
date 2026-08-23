@@ -2,17 +2,6 @@
 
 This project is for a competition. We use Codex as the main coding assistant, so changes should be small, clear, and easy for teammates to review.
 
-## Project Documentation
-
-The following documents are versioned project sources of truth and must be read before changing related functionality.
-
-- `docs/project/wireframe.md` — screen flows and interaction policies
-- `docs/project/planning.md` — MVP scope, domain responsibilities, and product decisions
-- `docs/project/coding-rules.md` — project coding conventions and documentation rules
-
-- Keep these documents in sync when a feature, policy, or implementation decision changes.
-- If the ERD, wireframe, planning document, or code conflicts, document the discrepancy and ask for a decision; do not silently choose a new policy.
-
 ## Core Rules
 
 ### Think Before Coding
