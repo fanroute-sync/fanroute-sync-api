@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.schedule.controller;
 
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -49,7 +50,7 @@ public class AiItineraryGenerationController {
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long itineraryDayId) {
     User user = currentUserResolver.getCurrentUser(jwt);
     AiItineraryGenerationDto.CreateResponse response = generationService.request(user, itineraryDayId);
-    generationAsyncService.generate(response.generationId());
+    submitGeneration(response.generationId());
     return ApiResponse.of(SuccessCode.ACCEPTED, response).toResponseEntity();
   }
 
@@ -79,7 +80,7 @@ public class AiItineraryGenerationController {
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
     User user = currentUserResolver.getCurrentUser(jwt);
     AiItineraryGenerationDto.CreateResponse response = generationService.retry(user, generationId);
-    generationAsyncService.generate(response.generationId());
+    submitGeneration(response.generationId());
     return ApiResponse.of(SuccessCode.ACCEPTED, response)
         .toResponseEntity();
   }
@@ -96,5 +97,13 @@ public class AiItineraryGenerationController {
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
     User user = currentUserResolver.getCurrentUser(jwt);
     return ApiResponse.ok(generationService.cancel(user, generationId)).toResponseEntity();
+  }
+
+  private void submitGeneration(Long generationId) {
+    try {
+      generationAsyncService.generate(generationId);
+    } catch (TaskRejectedException exception) {
+      generationService.fail(generationId);
+    }
   }
 }
