@@ -86,6 +86,7 @@ public class GeminiRestClient {
         장소 후보: %s
 
         고정 일정과 겹치지 않는 일반 일정만 생성해라. 고정 일정은 결과에 포함하지 마라.
+        이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.
         장소 후보 중 선택한 장소는 해당 placeId만 넣고, 후보 외 장소는 placeId를 null로 둬라.
         time은 HH:mm, durationMinutes는 1 이상의 정수로 반환해라.
         응답은 제공된 JSON 스키마만 만족해야 한다.

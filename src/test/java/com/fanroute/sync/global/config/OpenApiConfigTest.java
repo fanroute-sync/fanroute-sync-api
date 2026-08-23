@@ -107,7 +107,9 @@ class OpenApiConfigTest {
 
     customizer.customize(operation, new HandlerMethod(controller, method));
 
-    assertThat(operation.getResponses()).containsKeys("202", "401", "404");
+    assertThat(operation.getResponses()).containsKeys("202", "400", "401", "404");
+    assertThat(operation.getResponses().get("400").getContent().get("application/json").getExamples())
+        .containsKey("SCHEDULE_AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY");
     assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
         .containsKey("SCHEDULE_ITINERARY_DAY_NOT_FOUND");
   }
@@ -127,7 +129,8 @@ class OpenApiConfigTest {
 
     assertThat(operation.getResponses()).containsKeys("202", "400", "401", "404");
     assertThat(operation.getResponses().get("400").getContent().get("application/json").getExamples())
-        .containsKey("SCHEDULE_INVALID_AI_ITINERARY_GENERATION_STATUS");
+        .containsKeys("SCHEDULE_INVALID_AI_ITINERARY_GENERATION_STATUS",
+            "SCHEDULE_AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY");
     assertThat(operation.getResponses().get("404").getContent().get("application/json").getExamples())
         .containsKey("SCHEDULE_AI_ITINERARY_GENERATION_NOT_FOUND");
   }

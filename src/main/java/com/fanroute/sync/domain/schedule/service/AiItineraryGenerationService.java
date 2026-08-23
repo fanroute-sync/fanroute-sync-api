@@ -42,6 +42,7 @@ public class AiItineraryGenerationService {
 
   public AiItineraryGenerationDto.CreateResponse request(User user, Long itineraryDayId) {
     ItineraryDay itineraryDay = getOwnedItineraryDay(user, itineraryDayId);
+    validateGeneratableDay(itineraryDay);
     AiItineraryGeneration generation = generationRepository.save(
         AiItineraryGeneration.create(itineraryDay));
     return AiItineraryGenerationDto.CreateResponse.from(generation);
@@ -56,6 +57,7 @@ public class AiItineraryGenerationService {
   public AiItineraryGenerationDto.CreateResponse retry(User user, Long generationId) {
     AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
     validateStatus(generation, AiItineraryGenerationStatus.FAILED);
+    validateGeneratableDay(generation.getItineraryDay());
 
     AiItineraryGeneration retryGeneration = generationRepository.save(
         AiItineraryGeneration.create(generation.getItineraryDay()));
@@ -87,8 +89,14 @@ public class AiItineraryGenerationService {
         .map(item -> new AiItineraryGenerationDto.FixedItem(item.getScheduledTime(), item.getTitle(),
             item.getDurationMinutes()))
         .toList();
+    Set<Long> existingPlaceIds = existingItems.stream()
+        .map(ItineraryItem::getPlace)
+        .filter(place -> place != null)
+        .map(Place::getId)
+        .collect(java.util.stream.Collectors.toSet());
     List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = placeRepository
         .findTop20ByOrderByIdAsc().stream()
+        .filter(place -> !existingPlaceIds.contains(place.getId()))
         .map(place -> new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
             place.getAddress()))
         .toList();
@@ -111,6 +119,7 @@ public class AiItineraryGenerationService {
     ItineraryDay day = generation.getItineraryDay();
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
+    validatePlaceDuplicates(generatedItems, existingItems);
     Map<Long, Place> places = findCandidatePlaces(generatedItems, input.placeCandidates());
     validateConcertConflicts(generatedItems, existingItems);
 
@@ -148,6 +157,13 @@ public class AiItineraryGenerationService {
     return generationRepository.findByIdAndItineraryDayTripPlanUserId(generationId, user.getId())
         .orElseThrow(() -> new BusinessException(
             ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+  }
+
+  private void validateGeneratableDay(ItineraryDay itineraryDay) {
+    if (itineraryDay.isConcertDay()) {
+      throw new BusinessException(
+          ScheduleErrorCode.AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY);
+    }
   }
 
   private void validateStatus(AiItineraryGeneration generation,
@@ -199,6 +215,23 @@ public class AiItineraryGenerationService {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
     return places;
+  }
+
+  private void validatePlaceDuplicates(List<GeminiDto.GeneratedItem> generatedItems,
+      List<ItineraryItem> existingItems) {
+    Set<Long> existingPlaceIds = existingItems.stream()
+        .map(ItineraryItem::getPlace)
+        .filter(place -> place != null)
+        .map(Place::getId)
+        .collect(java.util.stream.Collectors.toSet());
+    Set<Long> generatedPlaceIds = new HashSet<>();
+    for (GeminiDto.GeneratedItem item : generatedItems) {
+      Long placeId = item.placeId();
+      if (placeId != null && (!generatedPlaceIds.add(placeId)
+          || existingPlaceIds.contains(placeId))) {
+        throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+      }
+    }
   }
 
   private void validateConcertConflicts(List<GeminiDto.GeneratedItem> generatedItems,

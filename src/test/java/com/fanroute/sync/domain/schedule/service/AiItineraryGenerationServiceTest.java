@@ -71,6 +71,19 @@ class AiItineraryGenerationServiceTest {
   }
 
   @Test
+  @DisplayName("공연일에는 AI 일정 생성 작업을 요청할 수 없다")
+  void rejectsGenerationOnConcertDay() {
+    ItineraryDay concertDay = itineraryDay(true);
+    when(itineraryDayRepository.findById(1L)).thenReturn(Optional.of(concertDay));
+
+    assertThatThrownBy(() -> service().request(UserFixture.activeUserWithId(1L), 1L))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY);
+    verify(generationRepository, never()).save(any());
+  }
+
+  @Test
   @DisplayName("다른 사용자의 AI 생성 작업 상태는 조회할 수 없다")
   void rejectsStatusLookupForOtherUser() {
     when(generationRepository.findByIdAndItineraryDayTripPlanUserId(10L, 2L))
@@ -100,6 +113,20 @@ class AiItineraryGenerationServiceTest {
     assertThat(response.generationId()).isEqualTo(11L);
     assertThat(response.status()).isEqualTo(AiItineraryGenerationStatus.PENDING);
     assertThat(failedGeneration.getStatus()).isEqualTo(AiItineraryGenerationStatus.FAILED);
+  }
+
+  @Test
+  @DisplayName("공연일의 실패 작업은 재시도할 수 없다")
+  void rejectsRetryOnConcertDay() {
+    AiItineraryGeneration failedGeneration = generation(AiItineraryGenerationStatus.FAILED, true);
+    when(generationRepository.findByIdAndItineraryDayTripPlanUserId(10L, 1L))
+        .thenReturn(Optional.of(failedGeneration));
+
+    assertThatThrownBy(() -> service().retry(UserFixture.activeUserWithId(1L), 10L))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY);
+    verify(generationRepository, never()).save(any());
   }
 
   @Test
@@ -159,6 +186,28 @@ class AiItineraryGenerationServiceTest {
     assertThat(input.fixedItems()).singleElement()
         .extracting(AiItineraryGenerationDto.FixedItem::scheduledTime)
         .isEqualTo(LocalTime.of(19, 0));
+  }
+
+  @Test
+  @DisplayName("기존 일정에 등록된 장소는 AI 장소 후보에서 제외한다")
+  void excludesExistingPlacesFromCandidates() {
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    Place existingPlace = place(1L);
+    Place candidatePlace = place(2L);
+    when(candidatePlace.getName()).thenReturn("해운대 해수욕장");
+    ItineraryItem existingItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(10, 0),
+        ItineraryItemType.PLACE, existingPlace, null, "광안리 해수욕장", 60);
+    when(generationRepository.startIfPending(10L, AiItineraryGenerationStatus.PENDING,
+        AiItineraryGenerationStatus.PROCESSING)).thenReturn(1);
+    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(existingItem));
+    when(placeRepository.findTop20ByOrderByIdAsc()).thenReturn(List.of(existingPlace, candidatePlace));
+
+    AiItineraryGenerationDto.GenerationInput input = service().start(10L);
+
+    assertThat(input.placeCandidates()).extracting(AiItineraryGenerationDto.PlaceCandidate::id)
+        .containsExactly(2L);
   }
 
   @Test
@@ -237,6 +286,44 @@ class AiItineraryGenerationServiceTest {
     verify(itineraryItemRepository, never()).saveAll(any());
   }
 
+  @Test
+  @DisplayName("Gemini 결과에 같은 장소가 중복되면 저장하지 않는다")
+  void rejectsDuplicateGeneratedPlace() {
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of());
+
+    assertThatThrownBy(() -> service().complete(10L, inputWithPlaceCandidate(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("10:00", "해운대 해수욕장", 60, 2L),
+            new GeminiDto.GeneratedItem("14:00", "해운대 해수욕장", 60, 2L)))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("기존 일정에 등록된 장소를 Gemini가 다시 반환하면 저장하지 않는다")
+  void rejectsGeneratedPlaceAlreadyInItinerary() {
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    Place existingPlace = place(2L);
+    ItineraryItem existingItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(10, 0),
+        ItineraryItemType.PLACE, existingPlace, null, "해운대 해수욕장", 60);
+    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(existingItem));
+
+    assertThatThrownBy(() -> service().complete(10L, inputWithPlaceCandidate(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("14:00", "해운대 해수욕장", 60, 2L)))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
   private AiItineraryGenerationService service() {
     return new AiItineraryGenerationService(generationRepository, itineraryDayRepository,
         itineraryItemRepository, placeRepository);
@@ -256,18 +343,32 @@ class AiItineraryGenerationServiceTest {
   }
 
   private ItineraryDay itineraryDay() {
+    return itineraryDay(false);
+  }
+
+  private ItineraryDay itineraryDay(boolean concertDay) {
     TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), null,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
-    ItineraryDay itineraryDay = ItineraryDay.create(tripPlan, LocalDate.of(2026, 9, 1), false);
+    ItineraryDay itineraryDay = ItineraryDay.create(tripPlan, LocalDate.of(2026, 9, 1), concertDay);
     ReflectionTestUtils.setField(itineraryDay, "id", 1L);
     return itineraryDay;
   }
 
   private AiItineraryGeneration generation(AiItineraryGenerationStatus status) {
-    AiItineraryGeneration generation = AiItineraryGeneration.create(itineraryDay());
+    return generation(status, false);
+  }
+
+  private AiItineraryGeneration generation(AiItineraryGenerationStatus status, boolean concertDay) {
+    AiItineraryGeneration generation = AiItineraryGeneration.create(itineraryDay(concertDay));
     ReflectionTestUtils.setField(generation, "id", 10L);
     ReflectionTestUtils.setField(generation, "status", status);
     return generation;
+  }
+
+  private Place place(Long id) {
+    Place place = org.mockito.Mockito.mock(Place.class);
+    when(place.getId()).thenReturn(id);
+    return place;
   }
 }

@@ -44,7 +44,8 @@ public class AiItineraryGenerationController {
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "202", description = "AI 일정 생성 작업 요청 성공", useReturnTypeSchema = true)
   })
-  @ApiErrorCodeExamples(type = ScheduleErrorCode.class, names = "ITINERARY_DAY_NOT_FOUND")
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = {"ITINERARY_DAY_NOT_FOUND", "AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY"})
   @PostMapping("/itinerary-days/{itineraryDayId}/ai-generations")
   public ResponseEntity<ApiResponse<AiItineraryGenerationDto.CreateResponse>> requestGeneration(
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long itineraryDayId) {
@@ -74,7 +75,8 @@ public class AiItineraryGenerationController {
           responseCode = "202", description = "AI 일정 생성 작업 재시도 접수 성공", useReturnTypeSchema = true)
   })
   @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
-      names = {"AI_ITINERARY_GENERATION_NOT_FOUND", "INVALID_AI_ITINERARY_GENERATION_STATUS"})
+      names = {"AI_ITINERARY_GENERATION_NOT_FOUND", "INVALID_AI_ITINERARY_GENERATION_STATUS",
+          "AI_ITINERARY_GENERATION_UNAVAILABLE_ON_CONCERT_DAY"})
   @PostMapping("/ai-itinerary-generations/{generationId}/retry")
   public ResponseEntity<ApiResponse<AiItineraryGenerationDto.CreateResponse>> retryGeneration(
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long generationId) {
