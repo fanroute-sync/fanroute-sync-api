@@ -31,7 +31,7 @@ bash ./gradlew bootRun
 | PostgreSQL | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` |
 | Redis | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` |
 | 인증 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `JWT_SECRET` |
-| 외부 API | `KOPIS_SERVICE_KEY`, `TOUR_API_KEY` |
+| 외부 API | `KOPIS_SERVICE_KEY`, `TOUR_API_KEY`, `GEMINI_API_KEY` |
 | Docker Compose | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
 
 선택 환경 변수와 기본값은 [`application.yml`](src/main/resources/application.yml) 및

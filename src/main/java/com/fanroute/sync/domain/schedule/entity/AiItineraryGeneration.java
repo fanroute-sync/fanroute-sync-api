@@ -47,4 +47,16 @@ public class AiItineraryGeneration extends BaseTimeEntity {
   public void cancel() {
     this.status = AiItineraryGenerationStatus.CANCELLED;
   }
+
+  public void start() {
+    this.status = AiItineraryGenerationStatus.PROCESSING;
+  }
+
+  public void complete() {
+    this.status = AiItineraryGenerationStatus.COMPLETED;
+  }
+
+  public void fail() {
+    this.status = AiItineraryGenerationStatus.FAILED;
+  }
 }
