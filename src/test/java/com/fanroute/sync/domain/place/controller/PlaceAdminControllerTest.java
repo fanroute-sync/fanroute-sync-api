@@ -22,7 +22,6 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.launch.JobExecutionAlreadyRunningException;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -33,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(PlaceAdminController.class)
@@ -42,7 +42,7 @@ class PlaceAdminControllerTest {
   @Autowired
   private MockMvc mockMvc;
   @MockitoBean
-  private JobOperator jobOperator;
+  private BatchJobLauncher batchJobLauncher;
   @MockitoBean(name = "accommodationPlaceSyncJob")
   private Job accommodationPlaceSyncJob;
   @MockitoBean(name = "attractionPlaceSyncJob")
@@ -57,7 +57,7 @@ class PlaceAdminControllerTest {
   @Test
   @DisplayName("카테고리를 지정하면 해당 Job만 실행한다")
   void syncsSingleCategoryWhenSpecified() throws Exception {
-    when(jobOperator.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("accommodationPlaceSyncJob", 10, 9, 1));
 
     mockMvc.perform(post("/api/v1/admin/places/sync")
@@ -68,18 +68,18 @@ class PlaceAdminControllerTest {
         .andExpect(jsonPath("$.data[0].readCount").value(10))
         .andExpect(jsonPath("$.data.length()").value(1));
 
-    verify(jobOperator, never()).start(eq(attractionPlaceSyncJob), any(JobParameters.class));
-    verify(jobOperator, never()).start(eq(restaurantPlaceSyncJob), any(JobParameters.class));
+    verify(batchJobLauncher, never()).start(eq(attractionPlaceSyncJob), any(JobParameters.class));
+    verify(batchJobLauncher, never()).start(eq(restaurantPlaceSyncJob), any(JobParameters.class));
   }
 
   @Test
   @DisplayName("카테고리를 생략하면 세 Job을 모두 실행한다")
   void syncsAllCategoriesWhenNotSpecified() throws Exception {
-    when(jobOperator.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("accommodationPlaceSyncJob", 10, 10, 0));
-    when(jobOperator.start(eq(attractionPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(attractionPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("attractionPlaceSyncJob", 5, 5, 0));
-    when(jobOperator.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("restaurantPlaceSyncJob", 3, 3, 0));
 
     mockMvc.perform(post("/api/v1/admin/places/sync").with(adminJwt()))
@@ -92,11 +92,11 @@ class PlaceAdminControllerTest {
   @Test
   @DisplayName("전체 동기화 중 한 카테고리 Job이 실행 중이어도 나머지는 계속 진행한다")
   void isolatesLaunchFailureWhenSyncingAll() throws Exception {
-    when(jobOperator.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
         .thenThrow(new JobExecutionAlreadyRunningException("running"));
-    when(jobOperator.start(eq(attractionPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(attractionPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("attractionPlaceSyncJob", 5, 5, 0));
-    when(jobOperator.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(restaurantPlaceSyncJob), any(JobParameters.class)))
         .thenReturn(execution("restaurantPlaceSyncJob", 3, 3, 0));
 
     mockMvc.perform(post("/api/v1/admin/places/sync").with(adminJwt()))
@@ -109,7 +109,7 @@ class PlaceAdminControllerTest {
   @Test
   @DisplayName("단일 카테고리 요청에서 Job이 이미 실행 중이면 409를 반환한다")
   void returnsConflictForSingleCategoryAlreadyRunning() throws Exception {
-    when(jobOperator.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
+    when(batchJobLauncher.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
         .thenThrow(new JobExecutionAlreadyRunningException("running"));
 
     mockMvc.perform(post("/api/v1/admin/places/sync")
@@ -126,7 +126,7 @@ class PlaceAdminControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
-    verifyNoInteractions(jobOperator);
+    verifyNoInteractions(batchJobLauncher);
   }
 
   @Test
@@ -136,7 +136,7 @@ class PlaceAdminControllerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
-    verifyNoInteractions(jobOperator);
+    verifyNoInteractions(batchJobLauncher);
   }
 
   private JobExecution execution(String jobName, int read, int write, int skip) {

@@ -9,7 +9,6 @@ import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.JobRestartException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +20,7 @@ import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.exception.PlaceErrorCode;
 import com.fanroute.sync.global.batch.JobRunResult;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @SecurityRequirement(name = "bearerAuth")
 public class PlaceAdminController {
 
-  private final JobOperator jobOperator;
+  private final BatchJobLauncher batchJobLauncher;
   private final Job accommodationPlaceSyncJob;
   private final Job attractionPlaceSyncJob;
   private final Job restaurantPlaceSyncJob;
@@ -72,7 +72,7 @@ public class PlaceAdminController {
 
   private JobRunResult launchOrThrow(PlaceCategory category) {
     try {
-      return JobRunResult.from(jobOperator.start(jobFor(category), triggerParameters()));
+      return JobRunResult.from(batchJobLauncher.start(jobFor(category), triggerParameters()));
     } catch (JobExecutionAlreadyRunningException | JobRestartException
              | JobInstanceAlreadyCompleteException | InvalidJobParametersException exception) {
       throw new BusinessException(PlaceErrorCode.SYNC_ALREADY_RUNNING);
@@ -83,7 +83,7 @@ public class PlaceAdminController {
     List<JobRunResult> results = new ArrayList<>();
     for (PlaceCategory category : PlaceCategory.values()) {
       try {
-        results.add(JobRunResult.from(jobOperator.start(jobFor(category), triggerParameters())));
+        results.add(JobRunResult.from(batchJobLauncher.start(jobFor(category), triggerParameters())));
       } catch (JobExecutionAlreadyRunningException | JobRestartException
                | JobInstanceAlreadyCompleteException | InvalidJobParametersException exception) {
         log.warn("TourAPI 장소 수동 동기화 실행 실패: category={}", category, exception);
