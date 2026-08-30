@@ -20,8 +20,8 @@ import com.fanroute.sync.global.external.ExternalApiLoggingInterceptor;
 @EnableConfigurationProperties(GeminiProperties.class)
 public class AiItineraryGenerationConfig {
 
-  @Bean("geminiRestClient")
-  public RestClient geminiRestClient(GeminiProperties properties,
+  @Bean("geminiHttpClient")
+  public RestClient geminiHttpClient(GeminiProperties properties,
       ExternalApiLoggingInterceptor loggingInterceptor) {
     HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(properties.getConnectTimeout())
