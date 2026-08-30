@@ -33,7 +33,7 @@ public class PlaceItemWriter implements ItemWriter<TourApiDto.PlaceSummary> {
     placeRepository.findByContentId(item.contentId())
         .ifPresentOrElse(
             place -> place.updateFromSync(
-                item.contentTypeId(), item.name(), item.address(), item.detailAddress(),
+                category, item.contentTypeId(), item.name(), item.address(), item.detailAddress(),
                 item.zipCode(), item.latitude(), item.longitude(), item.telephone(),
                 item.imageUrl(), item.thumbnailUrl(), item.copyrightType(),
                 item.legalDongRegionCode(), item.legalDongSignguCode(),
