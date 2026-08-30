@@ -74,6 +74,21 @@ class ConcertItemProcessorTest {
   }
 
   @Test
+  @DisplayName("공연 ID 또는 제목이 비어 있으면 응답 오류로 처리한다")
+  void rejectsBlankConcertIdOrTitle() {
+    KopisDto.PerformanceDetail blankTitle = new KopisDto.PerformanceDetail(
+        "PF001", "FC001", " ", "2026.09.01", "2026.09.02", "테스트홀", "poster.jpg", "대중음악",
+        "공연중");
+    when(kopisClient.getPerformanceDetail("PF001", SERVICE_KEY))
+        .thenReturn(new KopisDto.PerformanceDetailResponse(blankTitle));
+
+    assertThatThrownBy(() -> processor.process(summary()))
+        .isInstanceOfSatisfying(BusinessException.class,
+            exception -> assertThat(exception.getErrorCode())
+                .isEqualTo(ConcertErrorCode.KOPIS_RESPONSE_INVALID));
+  }
+
+  @Test
   @DisplayName("날짜 형식이 잘못되면 응답 오류로 처리한다")
   void rejectsInvalidDate() {
     KopisDto.PerformanceDetail invalidDate = new KopisDto.PerformanceDetail(
