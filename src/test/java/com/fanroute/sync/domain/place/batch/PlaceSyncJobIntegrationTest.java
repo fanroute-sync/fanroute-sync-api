@@ -78,7 +78,8 @@ class PlaceSyncJobIntegrationTest {
       List<PlaceSummary> items) {
     TourApiDto.Items wrappedItems = new TourApiDto.Items(items);
     TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, 1);
-    return new TourApiDto.SearchStayResponse(new TourApiDto.Response(null, body));
+    TourApiDto.Header header = new TourApiDto.Header(TourApiDto.SUCCESS_RESULT_CODE, "OK");
+    return new TourApiDto.SearchStayResponse(new TourApiDto.Response(header, body));
   }
 
   private TourApiDto.PlaceSummary summary() {

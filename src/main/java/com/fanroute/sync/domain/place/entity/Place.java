@@ -140,12 +140,13 @@ public class Place extends BaseTimeEntity {
         sourceCreatedAt, sourceModifiedAt, lastSyncedAt);
   }
 
-  public void updateFromSync(String contentTypeId, String name, String address,
-      String detailAddress, String zipCode, Double latitude, Double longitude, String telephone,
-      String imageUrl, String thumbnailUrl, String copyrightType, String legalDongRegionCode,
-      String legalDongSignguCode, String classificationLevel1, String classificationLevel2,
-      String classificationLevel3, String sourceCreatedAt, String sourceModifiedAt,
-      Instant syncedAt) {
+  public void updateFromSync(PlaceCategory category, String contentTypeId, String name,
+      String address, String detailAddress, String zipCode, Double latitude, Double longitude,
+      String telephone, String imageUrl, String thumbnailUrl, String copyrightType,
+      String legalDongRegionCode, String legalDongSignguCode, String classificationLevel1,
+      String classificationLevel2, String classificationLevel3, String sourceCreatedAt,
+      String sourceModifiedAt, Instant syncedAt) {
+    this.category = category;
     this.contentTypeId = contentTypeId;
     this.name = name;
     this.address = address;

@@ -51,9 +51,9 @@ class PlaceTest {
         null, null, null, null, null, null, null, null, null, null, firstSync);
 
     place.updateFromSync(
-        "32", "새 이름", "새 주소", "202호", "48059", 35.2, 129.2, "051-111-1111", "new-image.jpg",
-        "new-thumb.jpg", "Type1", "26", "26380", "AC", "AC02", "AC02010100", "20260103120000",
-        "20260104120000", secondSync);
+        PlaceCategory.ACCOMMODATION, "32", "새 이름", "새 주소", "202호", "48059", 35.2, 129.2,
+        "051-111-1111", "new-image.jpg", "new-thumb.jpg", "Type1", "26", "26380", "AC", "AC02",
+        "AC02010100", "20260103120000", "20260104120000", secondSync);
 
     assertThat(place.getContentId()).isEqualTo("126508");
     assertThat(place.getCategory()).isEqualTo(PlaceCategory.ACCOMMODATION);
@@ -66,5 +66,21 @@ class PlaceTest {
     assertThat(place.getLegalDongSignguCode()).isEqualTo("26380");
     assertThat(place.getLastSyncedAt()).isEqualTo(secondSync);
     assertThat(place.getSource()).isEqualTo(Place.SOURCE_KTO_TOUR_API);
+  }
+
+  @Test
+  @DisplayName("외부 분류가 바뀌면 카테고리도 최신값으로 갱신된다")
+  void updatesCategoryWhenExternalClassificationChanges() {
+    Place place = Place.create(
+        "126508", PlaceCategory.ACCOMMODATION, "32", "옛 이름", "옛 주소", null, null, 0.0, 0.0, null,
+        null, null, null, null, null, null, null, null, null, null,
+        Instant.parse("2026-08-19T00:00:00Z"));
+
+    place.updateFromSync(
+        PlaceCategory.ATTRACTION, "12", "옛 이름", "옛 주소", null, null, 0.0, 0.0, null, null, null,
+        null, null, null, null, null, null, null, null, Instant.parse("2026-08-20T00:00:00Z"));
+
+    assertThat(place.getCategory()).isEqualTo(PlaceCategory.ATTRACTION);
+    assertThat(place.getContentTypeId()).isEqualTo("12");
   }
 }

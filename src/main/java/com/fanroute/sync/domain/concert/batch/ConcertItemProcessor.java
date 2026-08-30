@@ -15,7 +15,9 @@ import com.fanroute.sync.global.common.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
-/** 잘못된 KOPIS 응답을 Skip 대상으로 변환하고 전송 오류는 재시도 정책에 전달합니다. */
+/**
+ * 잘못된 KOPIS 응답을 Skip 대상으로 변환하고 전송 오류는 재시도 정책에 전달합니다.
+ */
 @RequiredArgsConstructor
 public class ConcertItemProcessor
     implements ItemProcessor<KopisDto.PerformanceSummary, ConcertSyncDraft> {
@@ -29,6 +31,9 @@ public class ConcertItemProcessor
   @Override
   public ConcertSyncDraft process(KopisDto.PerformanceSummary summary) {
     KopisDto.PerformanceDetail detail = fetchDetail(summary.kopisConcertId());
+    if (isBlank(detail.kopisConcertId()) || isBlank(detail.title())) {
+      throw new BusinessException(ConcertErrorCode.KOPIS_RESPONSE_INVALID);
+    }
     LocalDate startDate = parseDate(detail.startDate());
     LocalDate endDate = parseDate(detail.endDate());
     Genre genre = parseGenre(detail.genreName());
@@ -78,5 +83,9 @@ public class ConcertItemProcessor
     } catch (IllegalArgumentException exception) {
       throw new BusinessException(ConcertErrorCode.KOPIS_RESPONSE_INVALID);
     }
+  }
+
+  private boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 }

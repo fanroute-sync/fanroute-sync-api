@@ -12,6 +12,8 @@ import com.fanroute.sync.domain.place.client.TourApiClient;
 import com.fanroute.sync.domain.place.config.TourApiProperties;
 import com.fanroute.sync.domain.place.dto.TourApiDto;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.exception.PlaceErrorCode;
+import com.fanroute.sync.global.common.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -62,6 +64,10 @@ public class PlaceItemReader implements ItemStreamReader<TourApiDto.PlaceSummary
   /** 조회 성공 후 페이지를 증가시켜 재시도 시 같은 페이지를 다시 요청합니다. */
   private void fetchNextPage() {
     TourApiDto.PlaceListResponse response = fetchPage(pageNo);
+    // HTTP 200이어도 오류 응답일 수 있어 resultCode를 확인합니다.
+    if (!response.isSuccess()) {
+      throw new BusinessException(PlaceErrorCode.TOUR_API_RESPONSE_INVALID);
+    }
     totalCount = response.totalCount();
     List<TourApiDto.PlaceSummary> items = response.itemsOrEmpty();
     if (items.isEmpty()) {
