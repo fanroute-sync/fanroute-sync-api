@@ -19,7 +19,6 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.JobInstance;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.launch.JobExecutionAlreadyRunningException;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.step.StepExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -29,6 +28,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fanroute.sync.global.config.SecurityConfig;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.support.SecurityWebMvcTestSupport;
 
 @WebMvcTest(ConcertAdminController.class)
@@ -38,14 +38,15 @@ class ConcertAdminControllerTest {
   @Autowired
   private MockMvc mockMvc;
   @MockitoBean
-  private JobOperator jobOperator;
+  private BatchJobLauncher batchJobLauncher;
   @MockitoBean
   private Job kopisConcertSyncJob;
 
   @Test
   @DisplayName("ADMIN 권한을 가진 사용자가 요청하면 Job을 실행하고 실행 결과를 반환한다")
   void syncsForAdminUser() throws Exception {
-    when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenReturn(completedExecution());
+    when(batchJobLauncher.start(any(Job.class), any(JobParameters.class)))
+        .thenReturn(completedExecution());
 
     mockMvc.perform(post("/api/v1/admin/concerts/sync")
             .with(jwt().jwt(jwt -> jwt.subject("1"))
@@ -61,7 +62,8 @@ class ConcertAdminControllerTest {
   @Test
   @DisplayName("이미 Job이 실행 중이면 409를 반환한다")
   void returnsConflictWhenJobAlreadyRunning() throws Exception {
-    when(jobOperator.start(any(Job.class), any(JobParameters.class))).thenThrow(new JobExecutionAlreadyRunningException("running"));
+    when(batchJobLauncher.start(any(Job.class), any(JobParameters.class)))
+        .thenThrow(new JobExecutionAlreadyRunningException("running"));
 
     mockMvc.perform(post("/api/v1/admin/concerts/sync")
             .with(jwt().jwt(jwt -> jwt.subject("1"))
@@ -77,7 +79,7 @@ class ConcertAdminControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
-    verifyNoInteractions(jobOperator);
+    verifyNoInteractions(batchJobLauncher);
   }
 
   @Test
@@ -87,7 +89,7 @@ class ConcertAdminControllerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
-    verifyNoInteractions(jobOperator);
+    verifyNoInteractions(batchJobLauncher);
   }
 
   private JobExecution completedExecution() {

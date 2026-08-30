@@ -59,7 +59,7 @@ dependencies {
     // =========================
     // Batch (외부 API 동기화 Job)
     // =========================
-    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-batch-jdbc'
     testImplementation 'org.springframework.batch:spring-batch-test'
 
     // =========================

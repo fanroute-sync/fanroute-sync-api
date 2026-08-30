@@ -7,7 +7,6 @@ import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.JobRestartException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fanroute.sync.domain.auth.exception.AuthErrorCode;
 import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.global.batch.JobRunResult;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.common.response.ApiResponse;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
@@ -34,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 @SecurityRequirement(name = "bearerAuth")
 public class ConcertAdminController {
 
-  private final JobOperator jobOperator;
+  private final BatchJobLauncher batchJobLauncher;
   private final Job kopisConcertSyncJob;
 
   @Operation(
@@ -61,7 +61,7 @@ public class ConcertAdminController {
         .addLong("triggeredAt", System.currentTimeMillis())
         .toJobParameters();
     try {
-      return jobOperator.start(kopisConcertSyncJob, jobParameters);
+      return batchJobLauncher.start(kopisConcertSyncJob, jobParameters);
     } catch (JobExecutionAlreadyRunningException | JobRestartException
         | JobInstanceAlreadyCompleteException | InvalidJobParametersException exception) {
       throw new BusinessException(ConcertErrorCode.SYNC_ALREADY_RUNNING);

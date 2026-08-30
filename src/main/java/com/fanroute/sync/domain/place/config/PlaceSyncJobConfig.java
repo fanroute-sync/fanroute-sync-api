@@ -6,7 +6,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -23,6 +22,7 @@ import com.fanroute.sync.domain.place.dto.TourApiDto;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.global.external.ExternalApiException;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,7 @@ public class PlaceSyncJobConfig {
   private final TourApiProperties tourApiProperties;
   private final PlaceRepository placeRepository;
   private final Clock clock;
-  private final JobOperator jobOperator;
+  private final BatchJobLauncher batchJobLauncher;
 
   @Bean
   public Job accommodationPlaceSyncJob() {
@@ -83,7 +83,7 @@ public class PlaceSyncJobConfig {
   public void triggerPlaceSyncJobs() {
     for (PlaceCategory category : PlaceCategory.values()) {
       try {
-        jobOperator.start(jobFor(category), triggerParameters());
+        batchJobLauncher.start(jobFor(category), triggerParameters());
       } catch (Exception exception) {
         log.error("TourAPI 장소 정기 동기화 실패: category={}", category, exception);
       }

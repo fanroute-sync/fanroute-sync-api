@@ -6,7 +6,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -25,6 +24,7 @@ import com.fanroute.sync.domain.concert.repository.ConcertRepository;
 import com.fanroute.sync.domain.concert.repository.VenueRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.external.ExternalApiException;
+import com.fanroute.sync.global.batch.BatchJobLauncher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,7 +44,7 @@ public class ConcertSyncJobConfig {
   private final VenueRepository venueRepository;
   private final ConcertRepository concertRepository;
   private final Clock clock;
-  private final JobOperator jobOperator;
+  private final BatchJobLauncher batchJobLauncher;
 
   @Bean
   public Job kopisConcertSyncJob() {
@@ -76,6 +76,6 @@ public class ConcertSyncJobConfig {
     JobParameters jobParameters = new JobParametersBuilder()
         .addLong("triggeredAt", System.currentTimeMillis())
         .toJobParameters();
-    jobOperator.start(kopisConcertSyncJob(), jobParameters);
+    batchJobLauncher.start(kopisConcertSyncJob(), jobParameters);
   }
 }

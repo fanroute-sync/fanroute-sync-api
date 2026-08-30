@@ -18,6 +18,11 @@ public record JobRunResult(
     @Schema(description = "시작 시각") LocalDateTime startTime,
     @Schema(description = "종료 시각") LocalDateTime endTime) {
 
+  /** JobExecution 없이 실행 자체가 실패한 경우를 표현합니다. */
+  public static JobRunResult failed(String jobName, String reasonCode) {
+    return new JobRunResult(jobName, "LAUNCH_FAILED", reasonCode, 0, 0, 0, null, null);
+  }
+
   public static JobRunResult from(JobExecution execution) {
     long readCount = 0;
     long writeCount = 0;
