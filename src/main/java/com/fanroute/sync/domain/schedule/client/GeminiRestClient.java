@@ -23,7 +23,7 @@ public class GeminiRestClient {
   private final GeminiProperties properties;
   private final ObjectMapper objectMapper;
 
-  public GeminiRestClient(@Qualifier("geminiRestClient") RestClient restClient,
+  public GeminiRestClient(@Qualifier("geminiHttpClient") RestClient restClient,
       GeminiProperties properties, ObjectMapper objectMapper) {
     this.restClient = restClient;
     this.properties = properties;
