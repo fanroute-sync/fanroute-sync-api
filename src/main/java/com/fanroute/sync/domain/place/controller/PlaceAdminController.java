@@ -82,11 +82,13 @@ public class PlaceAdminController {
   private List<JobRunResult> launchAllIsolated() {
     List<JobRunResult> results = new ArrayList<>();
     for (PlaceCategory category : PlaceCategory.values()) {
+      Job job = jobFor(category);
       try {
-        results.add(JobRunResult.from(batchJobLauncher.start(jobFor(category), triggerParameters())));
+        results.add(JobRunResult.from(batchJobLauncher.start(job, triggerParameters())));
       } catch (JobExecutionAlreadyRunningException | JobRestartException
                | JobInstanceAlreadyCompleteException | InvalidJobParametersException exception) {
         log.warn("TourAPI 장소 수동 동기화 실행 실패: category={}", category, exception);
+        results.add(JobRunResult.failed(job.getName(), PlaceErrorCode.SYNC_ALREADY_RUNNING.getCode()));
       }
     }
     return results;

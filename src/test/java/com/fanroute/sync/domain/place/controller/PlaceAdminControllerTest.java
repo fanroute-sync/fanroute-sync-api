@@ -90,8 +90,9 @@ class PlaceAdminControllerTest {
   }
 
   @Test
-  @DisplayName("전체 동기화 중 한 카테고리 Job이 실행 중이어도 나머지는 계속 진행한다")
+  @DisplayName("전체 동기화 중 한 카테고리 Job이 실행 중이어도 나머지는 계속 진행하고 실패 사실을 응답에 남긴다")
   void isolatesLaunchFailureWhenSyncingAll() throws Exception {
+    when(accommodationPlaceSyncJob.getName()).thenReturn("accommodationPlaceSyncJob");
     when(batchJobLauncher.start(eq(accommodationPlaceSyncJob), any(JobParameters.class)))
         .thenThrow(new JobExecutionAlreadyRunningException("running"));
     when(batchJobLauncher.start(eq(attractionPlaceSyncJob), any(JobParameters.class)))
@@ -101,9 +102,12 @@ class PlaceAdminControllerTest {
 
     mockMvc.perform(post("/api/v1/admin/places/sync").with(adminJwt()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.length()").value(2))
-        .andExpect(jsonPath("$.data[0].jobName").value("attractionPlaceSyncJob"))
-        .andExpect(jsonPath("$.data[1].jobName").value("restaurantPlaceSyncJob"));
+        .andExpect(jsonPath("$.data.length()").value(3))
+        .andExpect(jsonPath("$.data[0].jobName").value("accommodationPlaceSyncJob"))
+        .andExpect(jsonPath("$.data[0].status").value("LAUNCH_FAILED"))
+        .andExpect(jsonPath("$.data[0].exitCode").value("PLACE_SYNC_ALREADY_RUNNING"))
+        .andExpect(jsonPath("$.data[1].jobName").value("attractionPlaceSyncJob"))
+        .andExpect(jsonPath("$.data[2].jobName").value("restaurantPlaceSyncJob"));
   }
 
   @Test
