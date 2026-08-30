@@ -16,12 +16,21 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class TourApiDto {
 
+  /** TourAPI 응답 성공 코드. */
+  public static final String SUCCESS_RESULT_CODE = "0000";
+
   /** 동일한 목록 응답 스키마를 공통 처리합니다. */
   public interface PlaceListResponse {
 
     List<PlaceSummary> itemsOrEmpty();
 
     int totalCount();
+
+    String resultCode();
+
+    default boolean isSuccess() {
+      return SUCCESS_RESULT_CODE.equals(resultCode());
+    }
   }
 
   public record SearchStayResponse(@JsonProperty("response") Response response)
@@ -35,6 +44,11 @@ public final class TourApiDto {
     @Override
     public int totalCount() {
       return TourApiDto.totalCount(response);
+    }
+
+    @Override
+    public String resultCode() {
+      return TourApiDto.resultCode(response);
     }
   }
 
@@ -50,6 +64,11 @@ public final class TourApiDto {
     public int totalCount() {
       return TourApiDto.totalCount(response);
     }
+
+    @Override
+    public String resultCode() {
+      return TourApiDto.resultCode(response);
+    }
   }
 
   private static List<PlaceSummary> itemsOrEmpty(Response response) {
@@ -62,6 +81,10 @@ public final class TourApiDto {
 
   private static int totalCount(Response response) {
     return response == null || response.body() == null ? 0 : response.body().totalCount();
+  }
+
+  private static String resultCode(Response response) {
+    return response == null || response.header() == null ? null : response.header().resultCode();
   }
 
   public record Response(

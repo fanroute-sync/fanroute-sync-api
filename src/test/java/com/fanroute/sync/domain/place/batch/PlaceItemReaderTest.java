@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.place.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,8 @@ import com.fanroute.sync.domain.place.client.TourApiClient;
 import com.fanroute.sync.domain.place.config.TourApiProperties;
 import com.fanroute.sync.domain.place.dto.TourApiDto;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.exception.PlaceErrorCode;
+import com.fanroute.sync.global.common.exception.BusinessException;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceItemReaderTest {
@@ -103,6 +106,23 @@ class PlaceItemReaderTest {
   }
 
   @Test
+  @DisplayName("HTTP 200이어도 resultCode가 성공이 아니면 오류로 처리한다")
+  void failsWhenResultCodeIsNotSuccess() {
+    when(tourApiClient.searchStay(
+        anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyInt(),
+        eq(1)))
+        .thenReturn(new TourApiDto.SearchStayResponse(
+            new TourApiDto.Response(
+                new TourApiDto.Header("30", "SERVICE_KEY_IS_NOT_REGISTERED_ERROR"), null)));
+    PlaceItemReader reader = openReader(PlaceCategory.ACCOMMODATION);
+
+    assertThatThrownBy(reader::read)
+        .isInstanceOfSatisfying(BusinessException.class,
+            exception -> assertThat(exception.getErrorCode())
+                .isEqualTo(PlaceErrorCode.TOUR_API_RESPONSE_INVALID));
+  }
+
+  @Test
   @DisplayName("설정한 최대 건수까지만 반환한다")
   void limitsItemsByConfiguration() {
     properties = new TourApiProperties("test-key", "26", 1);
@@ -140,7 +160,8 @@ class PlaceItemReaderTest {
   private TourApiDto.Response responseBody(List<TourApiDto.PlaceSummary> items, int totalCount) {
     TourApiDto.Items wrappedItems = new TourApiDto.Items(items);
     TourApiDto.Body body = new TourApiDto.Body(wrappedItems, items.size(), 1, totalCount);
-    return new TourApiDto.Response(null, body);
+    TourApiDto.Header header = new TourApiDto.Header(TourApiDto.SUCCESS_RESULT_CODE, "OK");
+    return new TourApiDto.Response(header, body);
   }
 
   private TourApiDto.PlaceSummary summary(String contentId, String contentTypeId) {
