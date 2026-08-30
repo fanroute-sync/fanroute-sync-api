@@ -54,6 +54,10 @@ public class BatchJobHistoryController {
       names = {"AUTHENTICATION_REQUIRED", "ACCESS_DENIED"})
   @GetMapping("/{jobName}/executions")
   public ResponseEntity<ApiResponse<Page<JobRunResult>>> getExecutions(
+      @Parameter(
+          description = "실행 이력을 조회할 Job 이름. kopisConcertSyncJob, accommodationPlaceSyncJob, "
+              + "attractionPlaceSyncJob, restaurantPlaceSyncJob 중 하나입니다.",
+          example = "kopisConcertSyncJob")
       @PathVariable String jobName,
       @Parameter(description = "페이지 번호(0부터 시작)")
       @RequestParam(defaultValue = "0") int page,
