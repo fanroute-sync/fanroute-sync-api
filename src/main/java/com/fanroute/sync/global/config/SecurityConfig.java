@@ -51,7 +51,7 @@ public class SecurityConfig {
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/api/v1/auth/google", "/api/v1/auth/token/refresh",
                 "/api/v1/auth/logout", "/error",
-//                           // TODO:: 백엔드에서 확인용으로 작성, 로그인 프론트 연결 시 삭제
+                // local 프로파일에서만 컨트롤러가 등록됨(AuthDebugController) — 운영에는 이 경로 자체가 없음
                 "/api/v1/auth/google/callback"
             ).permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/concerts", "/api/v1/concerts/*")
