@@ -127,6 +127,25 @@ The following documents are versioned project sources of truth and must be read 
 - During `/prompts:team-review`, check that controller diffs have matching Swagger annotations
   before approving.
 
+### Swagger Interface Separation
+
+- Keep controller classes free of Swagger annotations. For every controller `{Name}Controller`,
+  declare a matching interface `{Name}Api` in the same package that carries every Swagger and
+  Spring MVC mapping annotation instead (`@Tag`, `@SecurityRequirement`, `@RequestMapping`,
+  `@Operation`, `@ApiResponses`, `@ApiErrorCodeExamples`, `@Parameter`, and the HTTP mapping
+  annotations such as `@GetMapping`/`@PostMapping`), and have the controller
+  `implements {Name}Api` with plain `@Override` methods.
+- Class-level annotations (`@Tag`, `@SecurityRequirement`, the base `@RequestMapping`) go on the
+  interface, not the controller class. The controller class itself only needs `@RestController`
+  and `@RequiredArgsConstructor`.
+- Spring resolves request mapping, parameter binding (`@RequestBody`, `@PathVariable`,
+  `@RequestParam`, `@CookieValue`), and Bean Validation (`@Valid`) from the interface method
+  even when the implementing method's parameters carry no annotations — this is the whole point
+  of the pattern, so do not duplicate annotations on the implementation.
+- Shared constants an `@Operation`/`@Parameter` description needs at compile time (for example a
+  `MAX_PAGE_SIZE` used in `"페이지 크기(최대 " + MAX_PAGE_SIZE + ")"`) belong on the interface as a
+  plain field; the controller can reference the inherited constant directly.
+
 ## Team Review Prompt
 
 - Use `/prompts:team-review` for team-oriented code reviews.
