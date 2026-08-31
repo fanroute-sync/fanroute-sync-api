@@ -51,12 +51,6 @@ public class AuthController implements AuthApi {
         .body(ApiResponse.ok());
   }
 
-  @Override
-  public ResponseEntity<ApiResponse<LoginDto.Response>> googleCallback(
-      String authorizationCode, String state) {
-    return loginResponse(googleLoginService.login(authorizationCode));
-  }
-
   private ResponseEntity<ApiResponse<LoginDto.Response>> loginResponse(
       GoogleLoginService.LoginResult result) {
     return ResponseEntity.ok()
