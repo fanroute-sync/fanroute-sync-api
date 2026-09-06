@@ -17,7 +17,8 @@ import com.fanroute.sync.global.external.ExternalApiLoggingInterceptor;
 
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties(GeminiProperties.class)
+@EnableConfigurationProperties({GeminiProperties.class, AiGenerationStreamProperties.class,
+    AiGenerationRetryProperties.class, AiGenerationNotificationProperties.class})
 public class AiItineraryGenerationConfig {
 
   @Bean("geminiHttpClient")

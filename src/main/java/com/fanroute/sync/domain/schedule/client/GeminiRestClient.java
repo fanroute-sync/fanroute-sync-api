@@ -30,7 +30,7 @@ public class GeminiRestClient {
     this.objectMapper = objectMapper;
   }
 
-  public GeminiDto.GeneratedItinerary generate(AiItineraryGenerationDto.GenerationInput input) {
+  public GeminiDto.GenerationResult generate(AiItineraryGenerationDto.GenerationInput input) {
     if (!StringUtils.hasText(properties.getApiKey())) {
       throw new IllegalStateException("GEMINI_API_KEY is not configured");
     }
@@ -45,7 +45,9 @@ public class GeminiRestClient {
         .body(GeminiDto.GenerateContentResponse.class);
 
     try {
-      return objectMapper.readValue(extractText(response), GeminiDto.GeneratedItinerary.class);
+      GeminiDto.GeneratedItinerary itinerary = objectMapper.readValue(
+          extractText(response), GeminiDto.GeneratedItinerary.class);
+      return new GeminiDto.GenerationResult(itinerary, response.usageMetadata());
     } catch (JacksonException exception) {
       throw new IllegalArgumentException("Gemini response JSON is invalid", exception);
     }

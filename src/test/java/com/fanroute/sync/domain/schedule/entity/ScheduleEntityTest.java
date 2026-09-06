@@ -54,4 +54,38 @@ class ScheduleEntityTest {
     assertThat(item.getTitle()).isEqualTo("점심 식사");
     assertThat(item.getDurationMinutes()).isEqualTo(60);
   }
+
+  @Test
+  @DisplayName("AI 생성 종료 상태는 processing lease를 제거한다")
+  void clearsProcessingLeaseWhenGenerationCompletes() {
+    AiItineraryGeneration generation = AiItineraryGeneration.create(
+        ItineraryDay.create(TripPlan.create(UserFixture.activeUser(), null,
+            Instant.parse("2026-09-01T01:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
+            null, List.of(), List.of()), LocalDate.of(2026, 9, 1), false));
+    generation.start(Instant.parse("2026-09-01T01:01:00Z"));
+
+    generation.complete();
+
+    assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.COMPLETED);
+    assertThat(generation.getProcessingLeaseUntil()).isNull();
+    assertThat(generation.getStatus().isTerminal()).isTrue();
+  }
+
+  @Test
+  @DisplayName("AI 생성 재시도는 다음 시각과 마지막 실패 이유를 기록한다")
+  void schedulesAiGenerationRetry() {
+    AiItineraryGeneration generation = AiItineraryGeneration.create(
+        ItineraryDay.create(TripPlan.create(UserFixture.activeUser(), null,
+            Instant.parse("2026-09-01T01:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
+            null, List.of(), List.of()), LocalDate.of(2026, 9, 1), false));
+    generation.start(Instant.parse("2026-09-01T01:01:00Z"));
+    Instant nextAttemptAt = Instant.parse("2026-09-01T01:02:00Z");
+
+    generation.scheduleRetry(nextAttemptAt, "429 Too Many Requests");
+
+    assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.PENDING);
+    assertThat(generation.getProcessingLeaseUntil()).isNull();
+    assertThat(generation.getNextAttemptAt()).isEqualTo(nextAttemptAt);
+    assertThat(generation.getLastFailureReason()).isEqualTo("429 Too Many Requests");
+  }
 }

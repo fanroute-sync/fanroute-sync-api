@@ -1,5 +1,7 @@
 package com.fanroute.sync.domain.schedule.service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,21 +17,29 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
+import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
+import com.fanroute.sync.domain.schedule.entity.AiGenerationDeadLetter;
+import com.fanroute.sync.domain.schedule.entity.AiGenerationNotificationType;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.entity.ItineraryItem;
 import com.fanroute.sync.domain.schedule.entity.ItineraryItemType;
+import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
+import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
+import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.global.common.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -39,12 +49,20 @@ public class AiItineraryGenerationService {
   private final ItineraryDayRepository itineraryDayRepository;
   private final ItineraryItemRepository itineraryItemRepository;
   private final PlaceRepository placeRepository;
+  private final TripPlanRepository tripPlanRepository;
+  private final AiGenerationOutboxService outboxService;
+  private final AiGenerationStreamProperties streamProperties;
+  private final AiGenerationRetryPolicy retryPolicy;
+  private final AiGenerationDeadLetterRepository deadLetterRepository;
+  private final AiGenerationNotificationOutboxService notificationOutboxService;
 
   public AiItineraryGenerationDto.CreateResponse request(User user, Long itineraryDayId) {
     ItineraryDay itineraryDay = getOwnedItineraryDay(user, itineraryDayId);
     validateGeneratableDay(itineraryDay);
+    reserveAiGeneration(itineraryDay);
     AiItineraryGeneration generation = generationRepository.save(
         AiItineraryGeneration.create(itineraryDay));
+    outboxService.enqueue(generation);
     return AiItineraryGenerationDto.CreateResponse.from(generation);
   }
 
@@ -58,9 +76,11 @@ public class AiItineraryGenerationService {
     AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
     validateStatus(generation, AiItineraryGenerationStatus.FAILED);
     validateGeneratableDay(generation.getItineraryDay());
+    reserveAiGeneration(generation.getItineraryDay());
 
     AiItineraryGeneration retryGeneration = generationRepository.save(
         AiItineraryGeneration.create(generation.getItineraryDay()));
+    outboxService.enqueue(retryGeneration);
     return AiItineraryGenerationDto.CreateResponse.from(retryGeneration);
   }
 
@@ -68,12 +88,15 @@ public class AiItineraryGenerationService {
     AiItineraryGeneration generation = getOwnedGeneration(user, generationId);
     validateStatus(generation, AiItineraryGenerationStatus.PENDING);
     generation.cancel();
+    releaseAiGeneration(generation);
     return AiItineraryGenerationDto.StatusResponse.from(generation);
   }
 
   public AiItineraryGenerationDto.GenerationInput start(Long generationId) {
-    int updated = generationRepository.startIfPending(generationId,
-        AiItineraryGenerationStatus.PENDING, AiItineraryGenerationStatus.PROCESSING);
+    Instant now = Instant.now();
+    int updated = generationRepository.acquireForProcessing(generationId,
+        AiItineraryGenerationStatus.PENDING, AiItineraryGenerationStatus.PROCESSING, now,
+        now.plus(streamProperties.getProcessingLease()));
     if (updated == 0) {
       return null;
     }
@@ -81,6 +104,12 @@ public class AiItineraryGenerationService {
     AiItineraryGeneration generation = generationRepository.findById(generationId)
         .orElseThrow(() -> new BusinessException(
             ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+    if (generation.getAttemptCount() == 1 && generation.getCreatedAt() != null) {
+      long queueWaitMillis = Math.max(0,
+          Duration.between(generation.getCreatedAt(), now).toMillis());
+      log.info("AI generation dequeued: generationId={}, attempt={}, queueWaitMs={}",
+          generationId, generation.getAttemptCount(), queueWaitMillis);
+    }
     ItineraryDay day = generation.getItineraryDay();
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
@@ -107,9 +136,17 @@ public class AiItineraryGenerationService {
         day.getTripPlan().getPreferences(), fixedItems, placeCandidates);
   }
 
+  @Transactional(readOnly = true)
+  public boolean isTerminal(Long generationId) {
+    return generationRepository.findById(generationId)
+        .map(generation -> generation.getStatus().isTerminal())
+        .orElseThrow(() -> new BusinessException(
+            ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+  }
+
   public void complete(Long generationId, AiItineraryGenerationDto.GenerationInput input,
       GeminiDto.GeneratedItinerary generatedItinerary) {
-    AiItineraryGeneration generation = generationRepository.findById(generationId)
+    AiItineraryGeneration generation = generationRepository.findByIdForUpdate(generationId)
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
     if (generation.getStatus() != AiItineraryGenerationStatus.PROCESSING) {
       return;
@@ -135,16 +172,51 @@ public class AiItineraryGenerationService {
         })
         .toList();
     itineraryItemRepository.saveAll(newItems);
+    confirmAiGeneration(generation);
     generation.complete();
+    notificationOutboxService.enqueue(generation, AiGenerationNotificationType.COMPLETED);
   }
 
   public void fail(Long generationId) {
-    generationRepository.findById(generationId).ifPresent(generation -> {
+    fail(generationId, null);
+  }
+
+  public void fail(Long generationId, String failureReason) {
+    generationRepository.findByIdForUpdate(generationId).ifPresent(generation -> {
       if (generation.getStatus() == AiItineraryGenerationStatus.PENDING
           || generation.getStatus() == AiItineraryGenerationStatus.PROCESSING) {
-        generation.fail();
+        generation.fail(normalizeFailureReason(failureReason));
+        releaseAiGeneration(generation);
+        notificationOutboxService.enqueue(generation, AiGenerationNotificationType.FAILED);
       }
     });
+  }
+
+  public void handleGeminiFailure(Long generationId, RuntimeException exception) {
+    AiItineraryGeneration generation = generationRepository.findByIdForUpdate(generationId)
+        .orElseThrow(() -> new BusinessException(
+            ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
+    if (generation.getStatus() != AiItineraryGenerationStatus.PROCESSING) {
+      return;
+    }
+
+    String failureReason = normalizeFailureReason(
+        exception.getClass().getSimpleName() + ": " + exception.getMessage());
+    boolean retryable = retryPolicy.isRetryable(exception);
+    if (retryable && retryPolicy.canRetry(generation.getAttemptCount())) {
+      Instant nextAttemptAt = Instant.now()
+          .plus(retryPolicy.nextDelay(generation.getAttemptCount()));
+      generation.scheduleRetry(nextAttemptAt, failureReason);
+      outboxService.enqueueAt(generation, nextAttemptAt);
+      return;
+    }
+
+    generation.fail(failureReason);
+    releaseAiGeneration(generation);
+    if (retryable) {
+      deadLetterRepository.save(AiGenerationDeadLetter.create(generation, failureReason));
+    }
+    notificationOutboxService.enqueue(generation, AiGenerationNotificationType.FAILED);
   }
 
   private ItineraryDay getOwnedItineraryDay(User user, Long itineraryDayId) {
@@ -171,6 +243,33 @@ public class AiItineraryGenerationService {
     if (generation.getStatus() != expectedStatus) {
       throw new BusinessException(ScheduleErrorCode.INVALID_AI_ITINERARY_GENERATION_STATUS);
     }
+  }
+
+  private void reserveAiGeneration(ItineraryDay itineraryDay) {
+    int updated = tripPlanRepository.reserveAiGeneration(itineraryDay.getTripPlan().getId(),
+        TripPlan.AI_GENERATION_LIMIT);
+    if (updated == 0) {
+      throw new BusinessException(ScheduleErrorCode.AI_ITINERARY_GENERATION_LIMIT_EXCEEDED);
+    }
+  }
+
+  private void confirmAiGeneration(AiItineraryGeneration generation) {
+    int updated = tripPlanRepository.confirmAiGeneration(
+        generation.getItineraryDay().getTripPlan().getId());
+    if (updated == 0) {
+      throw new IllegalStateException("AI generation must have a reserved quota");
+    }
+  }
+
+  private void releaseAiGeneration(AiItineraryGeneration generation) {
+    tripPlanRepository.releaseAiGeneration(generation.getItineraryDay().getTripPlan().getId());
+  }
+
+  private String normalizeFailureReason(String failureReason) {
+    if (failureReason == null || failureReason.isBlank()) {
+      return "Unknown failure";
+    }
+    return failureReason.length() <= 1000 ? failureReason : failureReason.substring(0, 1000);
   }
 
   private List<GeminiDto.GeneratedItem> validateGeneratedItems(
