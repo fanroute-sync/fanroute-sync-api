@@ -52,7 +52,14 @@ class GeminiRestClientTest {
                     ]
                   }
                 }
-              ]
+              ],
+              "usageMetadata": {
+                "promptTokenCount": 120,
+                "cachedContentTokenCount": 20,
+                "candidatesTokenCount": 30,
+                "thoughtsTokenCount": 10,
+                "totalTokenCount": 160
+              }
             }
             """, MediaType.APPLICATION_JSON));
 
@@ -61,11 +68,13 @@ class GeminiRestClientTest {
     GeminiRestClient client = new GeminiRestClient(builder.build(), properties,
         JsonMapper.builder().build());
 
-    GeminiDto.GeneratedItinerary result = client.generate(input());
+    GeminiDto.GenerationResult result = client.generate(input());
 
-    assertThat(result.items()).singleElement()
+    assertThat(result.itinerary().items()).singleElement()
         .extracting(GeminiDto.GeneratedItem::scheduledTime)
         .isEqualTo("13:00");
+    assertThat(result.usageMetadata()).isEqualTo(new GeminiDto.UsageMetadata(
+        120, 20, 30, 10, 160));
     server.verify();
   }
 

@@ -32,6 +32,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TripPlan extends BaseTimeEntity {
 
+  public static final int AI_GENERATION_LIMIT = 5;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -65,6 +67,12 @@ public class TripPlan extends BaseTimeEntity {
   @OrderColumn(name = "display_order")
   @Column(name = "preference", nullable = false, length = 50)
   private List<String> preferences = new ArrayList<>();
+
+  @Column(name = "ai_generation_used_count", nullable = false)
+  private int aiGenerationUsedCount;
+
+  @Column(name = "ai_generation_reserved_count", nullable = false)
+  private int aiGenerationReservedCount;
 
   private TripPlan(User user, Concert concert, Instant arrivalAt, Instant departureAt,
       TravelIntensityType travelIntensity, List<String> companions, List<String> preferences) {

@@ -98,3 +98,31 @@ gemini:
 springdoc:
   swagger-ui:
     with-credentials: true
+
+ai-generation:
+  notification:
+    enabled: ${AI_GENERATION_NOTIFICATION_ENABLED:false}
+    batch-size: ${AI_GENERATION_NOTIFICATION_BATCH_SIZE:20}
+    poll-delay: ${AI_GENERATION_NOTIFICATION_POLL_DELAY:1s}
+    processing-lease: ${AI_GENERATION_NOTIFICATION_PROCESSING_LEASE:30s}
+    max-attempts: ${AI_GENERATION_NOTIFICATION_MAX_ATTEMPTS:3}
+    initial-delay: ${AI_GENERATION_NOTIFICATION_RETRY_INITIAL_DELAY:2s}
+    max-delay: ${AI_GENERATION_NOTIFICATION_RETRY_MAX_DELAY:60s}
+    jitter-ratio: ${AI_GENERATION_NOTIFICATION_RETRY_JITTER_RATIO:0.2}
+  retry:
+    max-attempts: ${AI_GENERATION_MAX_ATTEMPTS:3}
+    initial-delay: ${AI_GENERATION_RETRY_INITIAL_DELAY:2s}
+    max-delay: ${AI_GENERATION_RETRY_MAX_DELAY:60s}
+    jitter-ratio: ${AI_GENERATION_RETRY_JITTER_RATIO:0.2}
+  stream:
+    key: ${AI_GENERATION_STREAM_KEY:fanroute:ai-generation:v1}
+    group: ${AI_GENERATION_STREAM_GROUP:ai-generation-workers}
+    consumer: ${AI_GENERATION_STREAM_CONSUMER:${HOSTNAME:local}}
+    outbox-poll-delay: ${AI_GENERATION_OUTBOX_POLL_DELAY:1s}
+    publish-lease: ${AI_GENERATION_OUTBOX_PUBLISH_LEASE:30s}
+    processing-lease: ${AI_GENERATION_PROCESSING_LEASE:45s}
+    claim-min-idle: ${AI_GENERATION_CLAIM_MIN_IDLE:60s}
+    claim-poll-delay: ${AI_GENERATION_CLAIM_POLL_DELAY:1s}
+    read-block: ${AI_GENERATION_READ_BLOCK:1s}
+    consumer-poll-delay: ${AI_GENERATION_CONSUMER_POLL_DELAY:100ms}
+    worker-concurrency: ${AI_GENERATION_WORKER_CONCURRENCY:2}

@@ -3,10 +3,12 @@ package com.fanroute.sync.domain.schedule.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -20,13 +22,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
+import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
+import com.fanroute.sync.domain.schedule.entity.AiGenerationDeadLetter;
+import com.fanroute.sync.domain.schedule.entity.AiGenerationNotificationType;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
@@ -35,12 +42,14 @@ import com.fanroute.sync.domain.schedule.entity.ItineraryItemType;
 import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
+import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
+import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.support.UserFixture;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class AiItineraryGenerationServiceTest {
 
   @Mock
@@ -51,12 +60,23 @@ class AiItineraryGenerationServiceTest {
   private ItineraryItemRepository itineraryItemRepository;
   @Mock
   private PlaceRepository placeRepository;
+  @Mock
+  private TripPlanRepository tripPlanRepository;
+  @Mock
+  private AiGenerationOutboxService outboxService;
+  @Mock
+  private AiGenerationRetryPolicy retryPolicy;
+  @Mock
+  private AiGenerationDeadLetterRepository deadLetterRepository;
+  @Mock
+  private AiGenerationNotificationOutboxService notificationOutboxService;
 
   @Test
   @DisplayName("내 날짜별 일정에 PENDING AI 생성 작업을 만든다")
   void requestsGeneration() {
     ItineraryDay itineraryDay = itineraryDay();
     when(itineraryDayRepository.findById(1L)).thenReturn(Optional.of(itineraryDay));
+    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(1);
     when(generationRepository.save(any(AiItineraryGeneration.class))).thenAnswer(invocation -> {
       AiItineraryGeneration generation = invocation.getArgument(0);
       ReflectionTestUtils.setField(generation, "id", 10L);
@@ -68,6 +88,19 @@ class AiItineraryGenerationServiceTest {
 
     assertThat(response.generationId()).isEqualTo(10L);
     assertThat(response.status()).isEqualTo(AiItineraryGenerationStatus.PENDING);
+  }
+
+  @Test
+  @DisplayName("AI 추천 5회가 모두 예약된 여행 일정에는 새 생성 작업을 요청할 수 없다")
+  void rejectsGenerationWhenTripPlanAiLimitIsReached() {
+    when(itineraryDayRepository.findById(1L)).thenReturn(Optional.of(itineraryDay()));
+    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(0);
+
+    assertThatThrownBy(() -> service().request(UserFixture.activeUserWithId(1L), 1L))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.AI_ITINERARY_GENERATION_LIMIT_EXCEEDED);
+    verify(generationRepository, never()).save(any());
   }
 
   @Test
@@ -101,6 +134,7 @@ class AiItineraryGenerationServiceTest {
     AiItineraryGeneration failedGeneration = generation(AiItineraryGenerationStatus.FAILED);
     when(generationRepository.findByIdAndItineraryDayTripPlanUserId(10L, 1L))
         .thenReturn(Optional.of(failedGeneration));
+    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(1);
     when(generationRepository.save(any(AiItineraryGeneration.class))).thenAnswer(invocation -> {
       AiItineraryGeneration generation = invocation.getArgument(0);
       ReflectionTestUtils.setField(generation, "id", 11L);
@@ -153,6 +187,7 @@ class AiItineraryGenerationServiceTest {
 
     assertThat(response.status()).isEqualTo(AiItineraryGenerationStatus.CANCELLED);
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.CANCELLED);
+    verify(tripPlanRepository).releaseAiGeneration(1L);
   }
 
   @Test
@@ -169,12 +204,16 @@ class AiItineraryGenerationServiceTest {
 
   @Test
   @DisplayName("대기 중인 작업만 처리 상태로 선점하고 AI 입력을 만든다")
-  void startsPendingGenerationAndBuildsInput() {
+  void startsPendingGenerationAndBuildsInput(CapturedOutput output) {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ReflectionTestUtils.setField(generation, "attemptCount", 1);
+    ReflectionTestUtils.setField(generation, "createdAt", Instant.now().minusSeconds(1));
     ItineraryItem concertItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(19, 0),
         ItineraryItemType.CONCERT, null, org.mockito.Mockito.mock(Concert.class), "공연", 120);
-    when(generationRepository.startIfPending(10L, AiItineraryGenerationStatus.PENDING,
-        AiItineraryGenerationStatus.PROCESSING)).thenReturn(1);
+    when(generationRepository.acquireForProcessing(eq(10L),
+        eq(AiItineraryGenerationStatus.PENDING),
+        eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
+        .thenReturn(1);
     when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(concertItem));
@@ -186,6 +225,7 @@ class AiItineraryGenerationServiceTest {
     assertThat(input.fixedItems()).singleElement()
         .extracting(AiItineraryGenerationDto.FixedItem::scheduledTime)
         .isEqualTo(LocalTime.of(19, 0));
+    assertThat(output).contains("generationId=10", "attempt=1", "queueWaitMs=");
   }
 
   @Test
@@ -197,8 +237,10 @@ class AiItineraryGenerationServiceTest {
     when(candidatePlace.getName()).thenReturn("해운대 해수욕장");
     ItineraryItem existingItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(10, 0),
         ItineraryItemType.PLACE, existingPlace, null, "광안리 해수욕장", 60);
-    when(generationRepository.startIfPending(10L, AiItineraryGenerationStatus.PENDING,
-        AiItineraryGenerationStatus.PROCESSING)).thenReturn(1);
+    when(generationRepository.acquireForProcessing(eq(10L),
+        eq(AiItineraryGenerationStatus.PENDING),
+        eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
+        .thenReturn(1);
     when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(existingItem));
@@ -213,11 +255,22 @@ class AiItineraryGenerationServiceTest {
   @Test
   @DisplayName("이미 처리된 작업은 다시 시작하지 않는다")
   void doesNotStartAlreadyClaimedGeneration() {
-    when(generationRepository.startIfPending(10L, AiItineraryGenerationStatus.PENDING,
-        AiItineraryGenerationStatus.PROCESSING)).thenReturn(0);
+    when(generationRepository.acquireForProcessing(eq(10L),
+        eq(AiItineraryGenerationStatus.PENDING),
+        eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
+        .thenReturn(0);
 
     assertThat(service().start(10L)).isNull();
     verify(generationRepository, never()).findById(any());
+  }
+
+  @Test
+  @DisplayName("종료 상태 작업은 중복 Stream 메시지를 ACK할 수 있다")
+  void identifiesTerminalGeneration() {
+    when(generationRepository.findById(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.COMPLETED)));
+
+    assertThat(service().isTerminal(10L)).isTrue();
   }
 
   @Test
@@ -227,10 +280,11 @@ class AiItineraryGenerationServiceTest {
     Place place = org.mockito.Mockito.mock(Place.class);
     when(place.getId()).thenReturn(2L);
     when(place.getName()).thenReturn("해운대 해수욕장");
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of());
     when(placeRepository.findAllById(List.of(2L))).thenReturn(List.of(place));
+    when(tripPlanRepository.confirmAiGeneration(1L)).thenReturn(1);
 
     service().complete(10L, inputWithPlaceCandidate(), new GeminiDto.GeneratedItinerary(List.of(
         new GeminiDto.GeneratedItem("14:00", "임의 제목", 90, 2L),
@@ -248,6 +302,9 @@ class AiItineraryGenerationServiceTest {
         .containsExactly(ItineraryItemType.CUSTOM, ItineraryItemType.PLACE);
     assertThat(savedItems.get(1).getTitle()).isEqualTo("해운대 해수욕장");
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.COMPLETED);
+    verify(tripPlanRepository).confirmAiGeneration(1L);
+    verify(notificationOutboxService).enqueue(generation,
+        AiGenerationNotificationType.COMPLETED);
   }
 
   @Test
@@ -256,7 +313,7 @@ class AiItineraryGenerationServiceTest {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
     ItineraryItem concertItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(19, 0),
         ItineraryItemType.CONCERT, null, org.mockito.Mockito.mock(Concert.class), "공연", 120);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(concertItem));
 
@@ -273,7 +330,7 @@ class AiItineraryGenerationServiceTest {
   @DisplayName("Gemini가 전달하지 않은 장소 후보 ID를 반환하면 저장하지 않는다")
   void rejectsPlaceOutsidePromptCandidates() {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of());
 
@@ -290,7 +347,7 @@ class AiItineraryGenerationServiceTest {
   @DisplayName("Gemini 결과에 같은 장소가 중복되면 저장하지 않는다")
   void rejectsDuplicateGeneratedPlace() {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of());
 
@@ -311,7 +368,7 @@ class AiItineraryGenerationServiceTest {
     Place existingPlace = place(2L);
     ItineraryItem existingItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(10, 0),
         ItineraryItemType.PLACE, existingPlace, null, "해운대 해수욕장", 60);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(existingItem));
 
@@ -324,9 +381,73 @@ class AiItineraryGenerationServiceTest {
     verify(itineraryItemRepository, never()).saveAll(any());
   }
 
+  @Test
+  @DisplayName("retryable Gemini 오류는 다음 시각의 outbox로 예약한다")
+  void schedulesRetryableGeminiFailure() {
+    RuntimeException exception = new RuntimeException("temporary");
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ReflectionTestUtils.setField(generation, "attemptCount", 1);
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
+    when(retryPolicy.isRetryable(exception)).thenReturn(true);
+    when(retryPolicy.canRetry(1)).thenReturn(true);
+    when(retryPolicy.nextDelay(1)).thenReturn(Duration.ofSeconds(2));
+
+    service().handleGeminiFailure(10L, exception);
+
+    assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.PENDING);
+    assertThat(generation.getNextAttemptAt()).isAfter(Instant.now());
+    assertThat(generation.getLastFailureReason()).contains("temporary");
+    verify(outboxService).enqueueAt(eq(generation), eq(generation.getNextAttemptAt()));
+    verify(tripPlanRepository, never()).releaseAiGeneration(any());
+    verify(deadLetterRepository, never()).save(any());
+    verify(notificationOutboxService, never()).enqueue(any(), any());
+  }
+
+  @Test
+  @DisplayName("retry 최대 시도에 도달하면 실패·예약 해제·dead-letter를 확정한다")
+  void deadLettersExhaustedGeminiFailure() {
+    RuntimeException exception = new RuntimeException("still unavailable");
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ReflectionTestUtils.setField(generation, "attemptCount", 3);
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
+    when(retryPolicy.isRetryable(exception)).thenReturn(true);
+    when(retryPolicy.canRetry(3)).thenReturn(false);
+
+    service().handleGeminiFailure(10L, exception);
+
+    assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.FAILED);
+    verify(tripPlanRepository).releaseAiGeneration(1L);
+    ArgumentCaptor<AiGenerationDeadLetter> deadLetterCaptor = ArgumentCaptor.forClass(
+        AiGenerationDeadLetter.class);
+    verify(deadLetterRepository).save(deadLetterCaptor.capture());
+    assertThat(deadLetterCaptor.getValue().getGeneration()).isSameAs(generation);
+    assertThat(deadLetterCaptor.getValue().getAttemptCount()).isEqualTo(3);
+    verify(notificationOutboxService).enqueue(generation, AiGenerationNotificationType.FAILED);
+  }
+
+  @Test
+  @DisplayName("JSON 같은 non-retryable 오류는 재발행과 dead-letter 없이 실패한다")
+  void failsNonRetryableGeminiFailure() {
+    RuntimeException exception = new IllegalArgumentException("invalid json");
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ReflectionTestUtils.setField(generation, "attemptCount", 1);
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
+    when(retryPolicy.isRetryable(exception)).thenReturn(false);
+
+    service().handleGeminiFailure(10L, exception);
+
+    assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.FAILED);
+    verify(tripPlanRepository).releaseAiGeneration(1L);
+    verify(outboxService, never()).enqueueAt(any(), any());
+    verify(deadLetterRepository, never()).save(any());
+    verify(notificationOutboxService).enqueue(generation, AiGenerationNotificationType.FAILED);
+  }
+
   private AiItineraryGenerationService service() {
+    AiGenerationStreamProperties streamProperties = new AiGenerationStreamProperties();
     return new AiItineraryGenerationService(generationRepository, itineraryDayRepository,
-        itineraryItemRepository, placeRepository);
+        itineraryItemRepository, placeRepository, tripPlanRepository, outboxService,
+        streamProperties, retryPolicy, deadLetterRepository, notificationOutboxService);
   }
 
   private AiItineraryGenerationDto.GenerationInput input() {
@@ -350,6 +471,7 @@ class AiItineraryGenerationServiceTest {
     TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), null,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
+    ReflectionTestUtils.setField(tripPlan, "id", 1L);
     ItineraryDay itineraryDay = ItineraryDay.create(tripPlan, LocalDate.of(2026, 9, 1), concertDay);
     ReflectionTestUtils.setField(itineraryDay, "id", 1L);
     return itineraryDay;

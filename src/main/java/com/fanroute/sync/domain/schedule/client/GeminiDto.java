@@ -31,13 +31,26 @@ public final class GeminiDto {
   public record StructuredText(String mimeType, Map<String, Object> schema) {
   }
 
-  public record GenerateContentResponse(List<Candidate> candidates) {
+  public record GenerateContentResponse(List<Candidate> candidates, UsageMetadata usageMetadata) {
+  }
+
+  public record UsageMetadata(
+      Integer promptTokenCount,
+      Integer cachedContentTokenCount,
+      Integer candidatesTokenCount,
+      Integer thoughtsTokenCount,
+      Integer totalTokenCount) {
   }
 
   public record Candidate(Content content) {
   }
 
   public record GeneratedItinerary(List<GeneratedItem> items) {
+  }
+
+  public record GenerationResult(
+      GeneratedItinerary itinerary,
+      UsageMetadata usageMetadata) {
   }
 
   public record GeneratedItem(
