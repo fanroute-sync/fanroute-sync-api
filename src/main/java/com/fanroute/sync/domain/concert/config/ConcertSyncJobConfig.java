@@ -21,6 +21,7 @@ import com.fanroute.sync.domain.concert.batch.ConcertSyncDraft;
 import com.fanroute.sync.domain.concert.client.KopisClient;
 import com.fanroute.sync.domain.concert.dto.KopisDto;
 import com.fanroute.sync.domain.concert.repository.ConcertRepository;
+import com.fanroute.sync.domain.concert.repository.ConcertScheduleRepository;
 import com.fanroute.sync.domain.concert.repository.VenueRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.external.ExternalApiException;
@@ -43,6 +44,7 @@ public class ConcertSyncJobConfig {
   private final KopisProperties kopisProperties;
   private final VenueRepository venueRepository;
   private final ConcertRepository concertRepository;
+  private final ConcertScheduleRepository concertScheduleRepository;
   private final Clock clock;
   private final BatchJobLauncher batchJobLauncher;
 
@@ -59,7 +61,8 @@ public class ConcertSyncJobConfig {
         .<KopisDto.PerformanceSummary, ConcertSyncDraft>chunk(CHUNK_SIZE)
         .reader(new ConcertItemReader(kopisClient, kopisProperties, clock))
         .processor(new ConcertItemProcessor(kopisClient, kopisProperties))
-        .writer(new ConcertItemWriter(venueRepository, concertRepository, clock))
+        .writer(new ConcertItemWriter(
+            venueRepository, concertRepository, concertScheduleRepository, clock))
         .transactionManager(transactionManager)
         .faultTolerant()
         .retryLimit(RETRY_LIMIT)

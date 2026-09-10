@@ -72,7 +72,10 @@ class ConcertSyncJobIntegrationTest {
 
     assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
     assertThat(concertRepository.findByKopisConcertId("PF001"))
-        .hasValueSatisfying(concert -> assertThat(concert.getTitle()).isEqualTo("테스트 공연"));
+        .hasValueSatisfying(concert -> {
+          assertThat(concert.getTitle()).isEqualTo("테스트 공연");
+          assertThat(concert.getPerformanceTimeGuide()).isEqualTo("화요일(20:00)");
+        });
     assertThat(venueRepository.findByKopisVenueId("FC001"))
         .hasValueSatisfying(v -> assertThat(v.getName()).isEqualTo("테스트홀"));
   }
@@ -85,7 +88,7 @@ class ConcertSyncJobIntegrationTest {
   private KopisDto.PerformanceDetail detail() {
     return new KopisDto.PerformanceDetail(
         "PF001", "FC001", "테스트 공연", "2026.09.01", "2026.09.02", "테스트홀", "poster.jpg",
-        "대중음악", "공연중");
+        "대중음악", "공연중", "화요일(20:00)");
   }
 
   private KopisDto.VenueDetail venue() {

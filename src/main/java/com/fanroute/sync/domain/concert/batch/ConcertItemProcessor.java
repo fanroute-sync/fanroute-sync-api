@@ -47,8 +47,8 @@ public class ConcertItemProcessor
 
     return new ConcertSyncDraft(
         detail.kopisConcertId(), detail.title(), startDate, endDate, genre, detail.posterUrl(),
-        kopisVenueId, venueName, venueDetail.address(), venueDetail.latitude(),
-        venueDetail.longitude());
+        detail.performanceTimeGuide(), kopisVenueId, venueName, venueDetail.address(),
+        venueDetail.latitude(), venueDetail.longitude());
   }
 
   private KopisDto.PerformanceDetail fetchDetail(String kopisConcertId) {
