@@ -19,7 +19,8 @@ class ConcertTest {
 
     Concert concert = Concert.create(
         "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC,
-        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2), "poster.jpg", syncedAt);
+        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2), "poster.jpg",
+        "화요일(20:00)", syncedAt);
 
     assertThat(concert.getKopisConcertId()).isEqualTo("PF001");
     assertThat(concert.getVenue()).isSameAs(venue);
@@ -28,6 +29,7 @@ class ConcertTest {
     assertThat(concert.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     assertThat(concert.getEndDate()).isEqualTo(LocalDate.of(2026, 9, 2));
     assertThat(concert.getPosterUrl()).isEqualTo("poster.jpg");
+    assertThat(concert.getPerformanceTimeGuide()).isEqualTo("화요일(20:00)");
     assertThat(concert.getLastSyncedAt()).isEqualTo(syncedAt);
   }
 
@@ -43,7 +45,7 @@ class ConcertTest {
 
     concert.updateFromSync(
         newVenue, "변경된 공연명", Genre.DANCE, LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 6),
-        "new-poster.jpg", secondSync);
+        "new-poster.jpg", "토요일(16:00,19:00)", secondSync);
 
     assertThat(concert.getVenue()).isSameAs(newVenue);
     assertThat(concert.getTitle()).isEqualTo("변경된 공연명");
@@ -51,6 +53,7 @@ class ConcertTest {
     assertThat(concert.getStartDate()).isEqualTo(LocalDate.of(2026, 9, 5));
     assertThat(concert.getEndDate()).isEqualTo(LocalDate.of(2026, 9, 6));
     assertThat(concert.getPosterUrl()).isEqualTo("new-poster.jpg");
+    assertThat(concert.getPerformanceTimeGuide()).isEqualTo("토요일(16:00,19:00)");
     assertThat(concert.getLastSyncedAt()).isEqualTo(secondSync);
   }
 }

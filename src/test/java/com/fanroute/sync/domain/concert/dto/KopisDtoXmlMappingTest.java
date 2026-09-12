@@ -54,6 +54,7 @@ class KopisDtoXmlMappingTest {
             <poster>http://example.com/poster.jpg</poster>
             <genrenm>대중음악</genrenm>
             <prfstate>공연예정</prfstate>
+            <dtguidance>화요일(20:00), 토요일(16:00,19:00)</dtguidance>
           </db>
         </dbs>
         """;
@@ -65,6 +66,8 @@ class KopisDtoXmlMappingTest {
     assertThat(response.performance().kopisConcertId()).isEqualTo("PF229754");
     assertThat(response.performance().kopisVenueId()).isEqualTo("FC000001");
     assertThat(response.performance().status()).isEqualTo("공연예정");
+    assertThat(response.performance().performanceTimeGuide())
+        .isEqualTo("화요일(20:00), 토요일(16:00,19:00)");
   }
 
   @Test

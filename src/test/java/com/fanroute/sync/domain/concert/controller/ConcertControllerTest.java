@@ -48,7 +48,7 @@ class ConcertControllerTest {
     Venue venue = Venue.create("FC001", "테스트홀", "부산 해운대구", 35.1, 129.0);
     Concert concert = Concert.create(
         "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC, LocalDate.of(2026, 9, 1),
-        LocalDate.of(2026, 9, 2), "poster.jpg", Instant.now());
+        LocalDate.of(2026, 9, 2), "poster.jpg", "화요일(20:00)", Instant.now());
     Page<Concert> page = new PageImpl<>(List.of(concert));
     when(concertService.getConcerts(isNull(), any())).thenReturn(page);
 
@@ -64,12 +64,13 @@ class ConcertControllerTest {
     Venue venue = Venue.create("FC001", "테스트홀", "부산 해운대구", 35.1, 129.0);
     Concert concert = Concert.create(
         "PF001", venue, "테스트 공연", Genre.POPULAR_MUSIC, LocalDate.of(2026, 9, 1),
-        LocalDate.of(2026, 9, 2), "poster.jpg", Instant.now());
+        LocalDate.of(2026, 9, 2), "poster.jpg", "화요일(20:00)", Instant.now());
     when(concertService.getConcert(1L)).thenReturn(concert);
 
     mockMvc.perform(get("/api/v1/concerts/1"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.title").value("테스트 공연"));
+        .andExpect(jsonPath("$.data.title").value("테스트 공연"))
+        .andExpect(jsonPath("$.data.performanceTimeGuide").value("화요일(20:00)"));
   }
 
   @Test

@@ -54,6 +54,8 @@ class ConcertItemProcessorTest {
     assertThat(draft.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     assertThat(draft.endDate()).isEqualTo(LocalDate.of(2026, 9, 2));
     assertThat(draft.genre()).isEqualTo(Genre.POPULAR_MUSIC);
+    assertThat(draft.performanceTimeGuide())
+        .isEqualTo("화요일(20:00), 토요일(16:00,19:00)");
     assertThat(draft.kopisVenueId()).isEqualTo("FC001");
     assertThat(draft.venueName()).isEqualTo("테스트홀");
   }
@@ -122,7 +124,7 @@ class ConcertItemProcessorTest {
   private KopisDto.PerformanceDetail performanceDetail() {
     return new KopisDto.PerformanceDetail(
         "PF001", "FC001", "테스트 공연", "2026.09.01", "2026.09.02", "테스트홀", "poster.jpg",
-        "대중음악", "공연중");
+        "대중음악", "공연중", "화요일(20:00), 토요일(16:00,19:00)");
   }
 
   private KopisDto.VenueDetail venueDetail() {

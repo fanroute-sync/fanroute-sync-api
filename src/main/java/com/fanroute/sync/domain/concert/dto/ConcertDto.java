@@ -19,6 +19,9 @@ public final class ConcertDto {
       @Schema(description = "공연 시작일") LocalDate startDate,
       @Schema(description = "공연 종료일") LocalDate endDate,
       @Schema(description = "포스터 이미지 URL") String posterUrl,
+      @Schema(
+          description = "KOPIS 요일별 공연시간 안내 원문",
+          example = "화요일 ~ 금요일(20:00), 토요일(16:00,19:00)") String performanceTimeGuide,
       @Schema(description = "공연장 정보") VenueSummary venue) {
 
     public static Response from(Concert concert) {
@@ -29,6 +32,7 @@ public final class ConcertDto {
           concert.getStartDate(),
           concert.getEndDate(),
           concert.getPosterUrl(),
+          concert.getPerformanceTimeGuide(),
           VenueSummary.from(concert.getVenue()));
     }
   }

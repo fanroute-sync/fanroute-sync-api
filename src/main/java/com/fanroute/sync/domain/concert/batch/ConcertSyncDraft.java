@@ -11,10 +11,19 @@ public record ConcertSyncDraft(
     LocalDate endDate,
     Genre genre,
     String posterUrl,
+    String performanceTimeGuide,
     String kopisVenueId,
     String venueName,
     String venueAddress,
     Double venueLatitude,
     Double venueLongitude) {
+
+  public ConcertSyncDraft(
+      String kopisConcertId, String title, LocalDate startDate, LocalDate endDate, Genre genre,
+      String posterUrl, String kopisVenueId, String venueName, String venueAddress,
+      Double venueLatitude, Double venueLongitude) {
+    this(kopisConcertId, title, startDate, endDate, genre, posterUrl, null, kopisVenueId,
+        venueName, venueAddress, venueLatitude, venueLongitude);
+  }
 
 }

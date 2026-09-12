@@ -49,7 +49,16 @@ public final class KopisDto {
       @JacksonXmlProperty(localName = "fcltynm") String venueName,
       @JacksonXmlProperty(localName = "poster") String posterUrl,
       @JacksonXmlProperty(localName = "genrenm") String genreName,
-      @JacksonXmlProperty(localName = "prfstate") String status) {
+      @JacksonXmlProperty(localName = "prfstate") String status,
+      // KOPIS는 회차 목록 대신 "화요일(20:00), 토요일(16:00,19:00)" 형태의 원문을 제공합니다.
+      @JacksonXmlProperty(localName = "dtguidance") String performanceTimeGuide) {
+
+    public PerformanceDetail(
+        String kopisConcertId, String kopisVenueId, String title, String startDate,
+        String endDate, String venueName, String posterUrl, String genreName, String status) {
+      this(kopisConcertId, kopisVenueId, title, startDate, endDate, venueName, posterUrl,
+          genreName, status, null);
+    }
 
   }
 

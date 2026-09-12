@@ -29,9 +29,23 @@ spring:
       database: ${REDIS_DATABASE:0}
 
   jpa:
+    hibernate:
+      # 대회 MVP 동안은 재시작 시 데이터를 보존하면서 엔티티 변경을 자동 반영합니다.
+      # 운영 전환 시 DB를 초기화한 뒤 Flyway 같은 버전드 마이그레이션 도구로 교체해야 합니다.
+      # ⚠️ application-local.yml/application-prod.yml은 .gitignore 대상이라 이 기본값을 프로필에서
+      # 명시적으로 덮어쓰지 않으면(파일 누락·신규 환경 등) 이 update가 그대로 적용됩니다 — 새 환경을
+      # 준비할 때는 반드시 해당 프로필 파일에 ddl-auto 값을 직접 확인·설정하세요.
+      ddl-auto: update
+    # schema.sql의 PostgreSQL 전용 부분 인덱스는 Hibernate가 테이블을 만든 다음 적용해야 합니다.
+    defer-datasource-initialization: true
     open-in-view: false
     properties:
       "[hibernate.jdbc.time_zone]": UTC
+
+  sql:
+    init:
+      # 외부 PostgreSQL에서도 재시작마다 멱등적인 MVP 보완 SQL을 실행합니다.
+      mode: always
 
   batch:
     job:
