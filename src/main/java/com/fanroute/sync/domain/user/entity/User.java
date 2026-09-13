@@ -37,6 +37,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends SoftDeleteEntity {
 
+  public static final int AI_GENERATION_LIMIT = 5;
+
   private static final int MAX_NICKNAME_LENGTH = 30;
   private static final int MAX_PROVIDER_USER_ID_LENGTH = 255;
   private static final int MAX_EMAIL_LENGTH = 320;
@@ -66,6 +68,12 @@ public class User extends SoftDeleteEntity {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private UserRole role;
+
+  @Column(name = "ai_generation_used_count", nullable = false)
+  private int aiGenerationUsedCount;
+
+  @Column(name = "ai_generation_reserved_count", nullable = false)
+  private int aiGenerationReservedCount;
 
   private User(String nickname, AuthProvider authProvider, String providerUserId, String email) {
     this.nickname = normalizeNickname(nickname);

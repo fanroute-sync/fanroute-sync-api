@@ -45,9 +45,10 @@ import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationReposit
 import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
-import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.support.UserFixture;
+import com.fanroute.sync.domain.user.entity.User;
+import com.fanroute.sync.domain.user.repository.UserRepository;
 
 @ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class AiItineraryGenerationServiceTest {
@@ -61,7 +62,7 @@ class AiItineraryGenerationServiceTest {
   @Mock
   private PlaceRepository placeRepository;
   @Mock
-  private TripPlanRepository tripPlanRepository;
+  private UserRepository userRepository;
   @Mock
   private AiGenerationOutboxService outboxService;
   @Mock
@@ -76,7 +77,7 @@ class AiItineraryGenerationServiceTest {
   void requestsGeneration() {
     ItineraryDay itineraryDay = itineraryDay();
     when(itineraryDayRepository.findById(1L)).thenReturn(Optional.of(itineraryDay));
-    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(1);
+    when(userRepository.reserveAiGeneration(1L, User.AI_GENERATION_LIMIT)).thenReturn(1);
     when(generationRepository.save(any(AiItineraryGeneration.class))).thenAnswer(invocation -> {
       AiItineraryGeneration generation = invocation.getArgument(0);
       ReflectionTestUtils.setField(generation, "id", 10L);
@@ -91,10 +92,10 @@ class AiItineraryGenerationServiceTest {
   }
 
   @Test
-  @DisplayName("AI 추천 5회가 모두 예약된 여행 일정에는 새 생성 작업을 요청할 수 없다")
-  void rejectsGenerationWhenTripPlanAiLimitIsReached() {
+  @DisplayName("AI 추천 5회가 모두 예약된 사용자는 새 생성 작업을 요청할 수 없다")
+  void rejectsGenerationWhenUserAiLimitIsReached() {
     when(itineraryDayRepository.findById(1L)).thenReturn(Optional.of(itineraryDay()));
-    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(0);
+    when(userRepository.reserveAiGeneration(1L, User.AI_GENERATION_LIMIT)).thenReturn(0);
 
     assertThatThrownBy(() -> service().request(UserFixture.activeUserWithId(1L), 1L))
         .isInstanceOf(BusinessException.class)
@@ -134,7 +135,7 @@ class AiItineraryGenerationServiceTest {
     AiItineraryGeneration failedGeneration = generation(AiItineraryGenerationStatus.FAILED);
     when(generationRepository.findByIdAndItineraryDayTripPlanUserId(10L, 1L))
         .thenReturn(Optional.of(failedGeneration));
-    when(tripPlanRepository.reserveAiGeneration(1L, TripPlan.AI_GENERATION_LIMIT)).thenReturn(1);
+    when(userRepository.reserveAiGeneration(1L, User.AI_GENERATION_LIMIT)).thenReturn(1);
     when(generationRepository.save(any(AiItineraryGeneration.class))).thenAnswer(invocation -> {
       AiItineraryGeneration generation = invocation.getArgument(0);
       ReflectionTestUtils.setField(generation, "id", 11L);
@@ -187,7 +188,7 @@ class AiItineraryGenerationServiceTest {
 
     assertThat(response.status()).isEqualTo(AiItineraryGenerationStatus.CANCELLED);
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.CANCELLED);
-    verify(tripPlanRepository).releaseAiGeneration(1L);
+    verify(userRepository).releaseAiGeneration(1L);
   }
 
   @Test
@@ -284,7 +285,7 @@ class AiItineraryGenerationServiceTest {
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of());
     when(placeRepository.findAllById(List.of(2L))).thenReturn(List.of(place));
-    when(tripPlanRepository.confirmAiGeneration(1L)).thenReturn(1);
+    when(userRepository.confirmAiGeneration(1L)).thenReturn(1);
 
     service().complete(10L, inputWithPlaceCandidate(), new GeminiDto.GeneratedItinerary(List.of(
         new GeminiDto.GeneratedItem("14:00", "임의 제목", 90, 2L),
@@ -302,7 +303,7 @@ class AiItineraryGenerationServiceTest {
         .containsExactly(ItineraryItemType.CUSTOM, ItineraryItemType.PLACE);
     assertThat(savedItems.get(1).getTitle()).isEqualTo("해운대 해수욕장");
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.COMPLETED);
-    verify(tripPlanRepository).confirmAiGeneration(1L);
+    verify(userRepository).confirmAiGeneration(1L);
     verify(notificationOutboxService).enqueue(generation,
         AiGenerationNotificationType.COMPLETED);
   }
@@ -398,7 +399,7 @@ class AiItineraryGenerationServiceTest {
     assertThat(generation.getNextAttemptAt()).isAfter(Instant.now());
     assertThat(generation.getLastFailureReason()).contains("temporary");
     verify(outboxService).enqueueAt(eq(generation), eq(generation.getNextAttemptAt()));
-    verify(tripPlanRepository, never()).releaseAiGeneration(any());
+    verify(userRepository, never()).releaseAiGeneration(any());
     verify(deadLetterRepository, never()).save(any());
     verify(notificationOutboxService, never()).enqueue(any(), any());
   }
@@ -416,7 +417,7 @@ class AiItineraryGenerationServiceTest {
     service().handleGeminiFailure(10L, exception);
 
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.FAILED);
-    verify(tripPlanRepository).releaseAiGeneration(1L);
+    verify(userRepository).releaseAiGeneration(1L);
     ArgumentCaptor<AiGenerationDeadLetter> deadLetterCaptor = ArgumentCaptor.forClass(
         AiGenerationDeadLetter.class);
     verify(deadLetterRepository).save(deadLetterCaptor.capture());
@@ -437,7 +438,7 @@ class AiItineraryGenerationServiceTest {
     service().handleGeminiFailure(10L, exception);
 
     assertThat(generation.getStatus()).isEqualTo(AiItineraryGenerationStatus.FAILED);
-    verify(tripPlanRepository).releaseAiGeneration(1L);
+    verify(userRepository).releaseAiGeneration(1L);
     verify(outboxService, never()).enqueueAt(any(), any());
     verify(deadLetterRepository, never()).save(any());
     verify(notificationOutboxService).enqueue(generation, AiGenerationNotificationType.FAILED);
@@ -446,7 +447,7 @@ class AiItineraryGenerationServiceTest {
   private AiItineraryGenerationService service() {
     AiGenerationStreamProperties streamProperties = new AiGenerationStreamProperties();
     return new AiItineraryGenerationService(generationRepository, itineraryDayRepository,
-        itineraryItemRepository, placeRepository, tripPlanRepository, outboxService,
+        itineraryItemRepository, placeRepository, userRepository, outboxService,
         streamProperties, retryPolicy, deadLetterRepository, notificationOutboxService);
   }
 
