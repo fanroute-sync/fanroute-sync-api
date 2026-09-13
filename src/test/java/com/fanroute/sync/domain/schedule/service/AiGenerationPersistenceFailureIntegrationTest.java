@@ -47,9 +47,9 @@ import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationNotificationOutboxEventRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
-import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.support.AbstractRepositoryTest;
 
 import jakarta.persistence.EntityManager;
@@ -90,7 +90,7 @@ class AiGenerationPersistenceFailureIntegrationTest extends AbstractRepositoryTe
   private AiGenerationNotificationOutboxEventRepository notificationOutboxRepository;
 
   @Autowired
-  private TripPlanRepository tripPlanRepository;
+  private UserRepository userRepository;
 
   @Autowired
   private PlatformTransactionManager transactionManager;
@@ -150,7 +150,7 @@ class AiGenerationPersistenceFailureIntegrationTest extends AbstractRepositoryTe
 
     assertThat(pendingCount()).isEqualTo(1);
     PersistenceState state = transactionTemplate.execute(
-        status -> findState(fixture.generationId(), fixture.tripPlanId(), fixture.dayId()));
+        status -> findState(fixture.generationId(), fixture.userId(), fixture.dayId()));
     assertThat(state).isEqualTo(new PersistenceState(
         AiItineraryGenerationStatus.PROCESSING, true, 0, 0, 1));
     assertThat(notificationOutboxRepository.countByGenerationId(fixture.generationId())).isZero();
@@ -171,9 +171,9 @@ class AiGenerationPersistenceFailureIntegrationTest extends AbstractRepositoryTe
     AiItineraryGeneration generation = AiItineraryGeneration.create(day);
     entityManager.persist(generation);
     entityManager.flush();
-    assertThat(tripPlanRepository.reserveAiGeneration(
-        tripPlan.getId(), TripPlan.AI_GENERATION_LIMIT)).isEqualTo(1);
-    return new GenerationFixture(generation.getId(), tripPlan.getId(), day.getId());
+    assertThat(userRepository.reserveAiGeneration(
+        user.getId(), User.AI_GENERATION_LIMIT)).isEqualTo(1);
+    return new GenerationFixture(generation.getId(), user.getId(), day.getId());
   }
 
   private void publishMessage(Long generationId) {
@@ -184,17 +184,17 @@ class AiGenerationPersistenceFailureIntegrationTest extends AbstractRepositoryTe
         streamProperties.getGroup());
   }
 
-  private PersistenceState findState(Long generationId, Long tripPlanId, Long dayId) {
+  private PersistenceState findState(Long generationId, Long userId, Long dayId) {
     AiItineraryGeneration generation = generationRepository.findById(generationId).orElseThrow();
-    TripPlan tripPlan = tripPlanRepository.findById(tripPlanId).orElseThrow();
+    User user = userRepository.findById(userId).orElseThrow();
     int itemCount = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId).size();
     return new PersistenceState(
         generation.getStatus(),
         generation.getProcessingLeaseUntil() != null,
         itemCount,
-        tripPlan.getAiGenerationUsedCount(),
-        tripPlan.getAiGenerationReservedCount());
+        user.getAiGenerationUsedCount(),
+        user.getAiGenerationReservedCount());
   }
 
   private long pendingCount() {
@@ -202,7 +202,7 @@ class AiGenerationPersistenceFailureIntegrationTest extends AbstractRepositoryTe
         streamProperties.getGroup(), Range.unbounded(), 10).size();
   }
 
-  private record GenerationFixture(Long generationId, Long tripPlanId, Long dayId) {
+  private record GenerationFixture(Long generationId, Long userId, Long dayId) {
   }
 
   private record PersistenceState(

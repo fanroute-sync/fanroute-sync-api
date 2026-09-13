@@ -51,9 +51,9 @@ import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterReposi
 import com.fanroute.sync.domain.schedule.repository.AiGenerationNotificationOutboxEventRepository;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationOutboxEventRepository;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
-import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.global.external.ExternalApiErrorType;
 import com.fanroute.sync.global.external.ExternalApiException;
 import com.fanroute.sync.support.AbstractRepositoryTest;
@@ -109,7 +109,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
   private AiGenerationNotificationOutboxEventRepository notificationOutboxRepository;
 
   @Autowired
-  private TripPlanRepository tripPlanRepository;
+  private UserRepository userRepository;
 
   @Autowired
   private PlatformTransactionManager transactionManager;
@@ -174,7 +174,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
 
     worker.consume();
     RetryState firstRetry = transactionTemplate.execute(
-        status -> findRetryState(fixture.generationId(), fixture.tripPlanId()));
+        status -> findRetryState(fixture.generationId(), fixture.userId()));
     assertRetryScheduled(firstRetry, 1, "rate limited");
     assertThat(notificationOutboxRepository.countByGenerationId(fixture.generationId())).isZero();
     assertThat(streamSize()).isEqualTo(1);
@@ -186,7 +186,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
     assertThat(streamSize()).isEqualTo(2);
     worker.consume();
     RetryState secondRetry = transactionTemplate.execute(
-        status -> findRetryState(fixture.generationId(), fixture.tripPlanId()));
+        status -> findRetryState(fixture.generationId(), fixture.userId()));
     assertRetryScheduled(secondRetry, 2, "provider unavailable");
     assertThat(notificationOutboxRepository.countByGenerationId(fixture.generationId())).isZero();
     relay.relay();
@@ -198,7 +198,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
     worker.consume();
 
     FinalState finalState = transactionTemplate.execute(
-        status -> findFinalState(fixture.generationId(), fixture.tripPlanId()));
+        status -> findFinalState(fixture.generationId(), fixture.userId()));
     assertThat(finalState).isEqualTo(new FinalState(
         AiItineraryGenerationStatus.FAILED, 3, 0, 0, 1, 2));
     assertThat(pendingCount()).isZero();
@@ -220,9 +220,9 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
     AiItineraryGeneration generation = AiItineraryGeneration.create(day);
     entityManager.persist(generation);
     entityManager.flush();
-    assertThat(tripPlanRepository.reserveAiGeneration(
-        tripPlan.getId(), TripPlan.AI_GENERATION_LIMIT)).isEqualTo(1);
-    return new GenerationFixture(generation.getId(), tripPlan.getId());
+    assertThat(userRepository.reserveAiGeneration(
+        user.getId(), User.AI_GENERATION_LIMIT)).isEqualTo(1);
+    return new GenerationFixture(generation.getId(), user.getId());
   }
 
   private void publishInitialMessage(Long generationId) {
@@ -243,17 +243,17 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
     assertThat(pendingCount()).isZero();
   }
 
-  private RetryState findRetryState(Long generationId, Long tripPlanId) {
+  private RetryState findRetryState(Long generationId, Long userId) {
     AiItineraryGeneration generation = generationRepository.findById(generationId).orElseThrow();
-    TripPlan tripPlan = tripPlanRepository.findById(tripPlanId).orElseThrow();
+    User user = userRepository.findById(userId).orElseThrow();
     return new RetryState(generation.getStatus(), generation.getAttemptCount(),
         generation.getNextAttemptAt(), generation.getLastFailureReason(),
-        tripPlan.getAiGenerationUsedCount(), tripPlan.getAiGenerationReservedCount());
+        user.getAiGenerationUsedCount(), user.getAiGenerationReservedCount());
   }
 
-  private FinalState findFinalState(Long generationId, Long tripPlanId) {
+  private FinalState findFinalState(Long generationId, Long userId) {
     AiItineraryGeneration generation = generationRepository.findById(generationId).orElseThrow();
-    TripPlan tripPlan = tripPlanRepository.findById(tripPlanId).orElseThrow();
+    User user = userRepository.findById(userId).orElseThrow();
     long deadLetterCount = deadLetterRepository.findAll().stream()
         .map(AiGenerationDeadLetter::getGeneration)
         .filter(deadLetterGeneration -> deadLetterGeneration.getId().equals(generationId))
@@ -263,7 +263,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
         .filter(event -> event.getStatus() == AiGenerationOutboxStatus.PUBLISHED)
         .count();
     return new FinalState(generation.getStatus(), generation.getAttemptCount(),
-        tripPlan.getAiGenerationUsedCount(), tripPlan.getAiGenerationReservedCount(),
+        user.getAiGenerationUsedCount(), user.getAiGenerationReservedCount(),
         deadLetterCount, publishedOutboxCount);
   }
 
@@ -283,7 +283,7 @@ class AiGenerationRetryIntegrationTest extends AbstractRepositoryTest {
         streamProperties.getGroup(), Range.unbounded(), 10).size();
   }
 
-  private record GenerationFixture(Long generationId, Long tripPlanId) {
+  private record GenerationFixture(Long generationId, Long userId) {
   }
 
   private record RetryState(

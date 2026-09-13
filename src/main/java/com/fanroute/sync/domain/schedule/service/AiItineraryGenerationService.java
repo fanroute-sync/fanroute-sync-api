@@ -26,14 +26,13 @@ import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.entity.ItineraryItem;
 import com.fanroute.sync.domain.schedule.entity.ItineraryItemType;
-import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
-import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
+import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
@@ -49,7 +48,7 @@ public class AiItineraryGenerationService {
   private final ItineraryDayRepository itineraryDayRepository;
   private final ItineraryItemRepository itineraryItemRepository;
   private final PlaceRepository placeRepository;
-  private final TripPlanRepository tripPlanRepository;
+  private final UserRepository userRepository;
   private final AiGenerationOutboxService outboxService;
   private final AiGenerationStreamProperties streamProperties;
   private final AiGenerationRetryPolicy retryPolicy;
@@ -246,23 +245,23 @@ public class AiItineraryGenerationService {
   }
 
   private void reserveAiGeneration(ItineraryDay itineraryDay) {
-    int updated = tripPlanRepository.reserveAiGeneration(itineraryDay.getTripPlan().getId(),
-        TripPlan.AI_GENERATION_LIMIT);
+    int updated = userRepository.reserveAiGeneration(itineraryDay.getTripPlan().getUser().getId(),
+        User.AI_GENERATION_LIMIT);
     if (updated == 0) {
       throw new BusinessException(ScheduleErrorCode.AI_ITINERARY_GENERATION_LIMIT_EXCEEDED);
     }
   }
 
   private void confirmAiGeneration(AiItineraryGeneration generation) {
-    int updated = tripPlanRepository.confirmAiGeneration(
-        generation.getItineraryDay().getTripPlan().getId());
+    int updated = userRepository.confirmAiGeneration(
+        generation.getItineraryDay().getTripPlan().getUser().getId());
     if (updated == 0) {
       throw new IllegalStateException("AI generation must have a reserved quota");
     }
   }
 
   private void releaseAiGeneration(AiItineraryGeneration generation) {
-    tripPlanRepository.releaseAiGeneration(generation.getItineraryDay().getTripPlan().getId());
+    userRepository.releaseAiGeneration(generation.getItineraryDay().getTripPlan().getUser().getId());
   }
 
   private String normalizeFailureReason(String failureReason) {
