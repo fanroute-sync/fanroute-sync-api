@@ -38,9 +38,9 @@ import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationOutboxEventRepository;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
-import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.entity.vo.AuthProvider;
+import com.fanroute.sync.domain.user.repository.UserRepository;
 import com.fanroute.sync.support.AbstractRepositoryTest;
 
 import jakarta.persistence.EntityManager;
@@ -73,7 +73,7 @@ class AiGenerationRedisOutageIntegrationTest extends AbstractRepositoryTest {
   private AiItineraryGenerationRepository generationRepository;
 
   @Autowired
-  private TripPlanRepository tripPlanRepository;
+  private UserRepository userRepository;
 
   @Autowired
   private PlatformTransactionManager transactionManager;
@@ -171,8 +171,8 @@ class AiGenerationRedisOutageIntegrationTest extends AbstractRepositoryTest {
     AiGenerationOutboxEvent event = AiGenerationOutboxEvent.create(generation, Instant.now());
     entityManager.persist(event);
     entityManager.flush();
-    assertThat(tripPlanRepository.reserveAiGeneration(
-        tripPlan.getId(), TripPlan.AI_GENERATION_LIMIT)).isEqualTo(1);
+    assertThat(userRepository.reserveAiGeneration(
+        user.getId(), User.AI_GENERATION_LIMIT)).isEqualTo(1);
     return event.getId();
   }
 
@@ -180,10 +180,10 @@ class AiGenerationRedisOutageIntegrationTest extends AbstractRepositoryTest {
     AiGenerationOutboxEvent event = outboxRepository.findById(eventId).orElseThrow();
     AiItineraryGeneration generation = generationRepository
         .findById(event.getGeneration().getId()).orElseThrow();
-    TripPlan tripPlan = tripPlanRepository
-        .findById(generation.getItineraryDay().getTripPlan().getId()).orElseThrow();
+    User user = userRepository.findById(generation.getItineraryDay().getTripPlan().getUser().getId())
+        .orElseThrow();
     return new OutageState(event.getStatus(), generation.getStatus(),
-        tripPlan.getAiGenerationUsedCount(), tripPlan.getAiGenerationReservedCount());
+        user.getAiGenerationUsedCount(), user.getAiGenerationReservedCount());
   }
 
   private Long eventGenerationId(Long eventId) {
