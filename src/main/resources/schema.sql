@@ -7,3 +7,7 @@ DROP INDEX IF EXISTS uk_concert_schedules_concert_id_round;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_concert_schedules_concert_id_date_time
     ON concert_schedules (concert_id, performance_date, performance_time)
     WHERE deleted_at IS NULL;
+
+-- 작성자별 동행 모집 글은 MVP에서 삭제 전까지 하나만 유지합니다.
+CREATE UNIQUE INDEX IF NOT EXISTS uk_community_posts_active_companion_author
+    ON community_posts (author_id) WHERE type = 'COMPANION';
