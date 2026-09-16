@@ -21,14 +21,15 @@ public class CommunityController implements CommunityApi {
   private final CurrentUserResolver currentUser;
 
   @Override
-  public ResponseEntity<ApiResponse<Page<CommunityDto.PostResponse>>> list(PostType type,
+  public ResponseEntity<ApiResponse<Page<CommunityDto.PostResponse>>> list(Jwt jwt, PostType type,
       String query, String region, String sort, int page, int size) {
-    return ApiResponse.ok(service.list(type, query, region, sort, page, size)).toResponseEntity();
+    return ApiResponse.ok(service.list(currentUser.getCurrentUser(jwt), type, query, region,
+        sort, page, size)).toResponseEntity();
   }
 
   @Override
-  public ResponseEntity<ApiResponse<CommunityDto.PostDetailResponse>> detail(Long postId) {
-    return ApiResponse.ok(service.detail(postId)).toResponseEntity();
+  public ResponseEntity<ApiResponse<CommunityDto.PostDetailResponse>> detail(Jwt jwt, Long postId) {
+    return ApiResponse.ok(service.detail(currentUser.getCurrentUser(jwt), postId)).toResponseEntity();
   }
 
   @Override

@@ -45,6 +45,33 @@ class CommunityServiceTest {
   @Mock ConcertRepository concerts;
 
   @Test
+  void detailIncludesCurrentUsersPostAndCommentLikes() {
+    User user = UserFixture.activeUser();
+    ReflectionTestUtils.setField(user, "id", 1L);
+    Post post = Post.create(user, PostType.INFO, "title", "body", List.of(),
+        null, null, null, null, null);
+    ReflectionTestUtils.setField(post, "id", 10L);
+    Comment comment = Comment.create(post, user, null, "comment");
+    ReflectionTestUtils.setField(comment, "id", 20L);
+    when(posts.findById(10L)).thenReturn(Optional.of(post));
+    when(comments.findByPostIdOrderByCreatedAtAscIdAsc(10L)).thenReturn(List.of(comment));
+    when(postLikes.existsByPostIdAndUserId(10L, 1L)).thenReturn(true);
+    when(commentLikes.existsByCommentIdAndUserId(20L, 1L)).thenReturn(true);
+
+    CommunityDto.PostDetailResponse response = service().detail(user, 10L);
+
+    assertThat(response.post().likedByMe()).isTrue();
+    assertThat(response.comments()).hasSize(1);
+    assertThat(response.comments().getFirst().likedByMe()).isTrue();
+
+    User anotherUser = UserFixture.activeUser();
+    ReflectionTestUtils.setField(anotherUser, "id", 2L);
+    CommunityDto.PostDetailResponse anotherResponse = service().detail(anotherUser, 10L);
+    assertThat(anotherResponse.post().likedByMe()).isFalse();
+    assertThat(anotherResponse.comments().getFirst().likedByMe()).isFalse();
+  }
+
+  @Test
   void replyToReplyUsesTopLevelParent() {
     User user = UserFixture.activeUser();
     Post post = Post.create(user, PostType.INFO, "title", "body", List.of(),

@@ -26,14 +26,18 @@ public final class CommunityDto {
   public record PostResponse(Long id, PostType type, String title, String content,
       List<String> tags, Long authorId, String authorNickname, Long concertId,
       String concertTitle, Long tripPlanId, LocalDate companionDate, Integer capacity,
-      Integer currentMembers, String region, long likeCount, long commentCount,
+      Integer currentMembers, String region, long likeCount,
+      @Schema(description = "현재 로그인 사용자의 게시글 좋아요 여부") boolean likedByMe,
+      long commentCount,
       Instant createdAt) {}
 
   public record CreateCommentRequest(@NotBlank @Size(max = 1000) String content,
       @Schema(description = "답글 대상 댓글 ID. 답글의 답글도 최상위 댓글에 연결") Long parentId) {}
 
   public record CommentResponse(Long id, Long parentId, Long authorId,
-      String authorNickname, String content, long likeCount, Instant createdAt) {}
+      String authorNickname, String content, long likeCount,
+      @Schema(description = "현재 로그인 사용자의 댓글 좋아요 여부") boolean likedByMe,
+      Instant createdAt) {}
 
   public record PostDetailResponse(PostResponse post, List<CommentResponse> comments) {}
 }

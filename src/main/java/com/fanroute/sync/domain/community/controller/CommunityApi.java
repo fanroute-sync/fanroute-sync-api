@@ -27,6 +27,7 @@ public interface CommunityApi {
       responseCode = "200", description = "조회 성공", useReturnTypeSchema = true))
   @ApiErrorCodeExamples(type = CommunityErrorCode.class, names = "INVALID_POST")
   ResponseEntity<ApiResponse<Page<CommunityDto.PostResponse>>> list(
+      @org.springframework.security.core.annotation.AuthenticationPrincipal Jwt jwt,
       @RequestParam(required = false) PostType type, @RequestParam(required = false) String query,
       @RequestParam(required = false) String region,
       @RequestParam(defaultValue = "latest") String sort,
@@ -37,7 +38,9 @@ public interface CommunityApi {
   @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "200", description = "조회 성공", useReturnTypeSchema = true))
   @ApiErrorCodeExamples(type = CommunityErrorCode.class, names = "POST_NOT_FOUND")
-  ResponseEntity<ApiResponse<CommunityDto.PostDetailResponse>> detail(@PathVariable Long postId);
+  ResponseEntity<ApiResponse<CommunityDto.PostDetailResponse>> detail(
+      @org.springframework.security.core.annotation.AuthenticationPrincipal Jwt jwt,
+      @PathVariable Long postId);
 
   @PostMapping
   @Operation(summary = "게시글 작성")
