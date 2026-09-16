@@ -55,3 +55,27 @@ OAuth만 지원한다.
 - 게시글은 좋아요와 한 단계 답글을 지원한다.
 - 마이페이지는 프로필, 활동 내역, AI 루트 사용 현황을 제공한다.
 - 알림 설정과 회원 탈퇴는 Phase 2 범위다.
+
+## Fan Route 커뮤니티 MVP API
+
+- 게시글 목록은 검색어(제목·공연명·공연장명·태그), 유형, 지역 필터를 지원한다. 기본 정렬은 최신순이며 인기순은 좋아요 수 기준이다.
+- 정보 공유는 본문을 입력한다. 참고 루트는 본인 저장 일정을 선택하여 게시 시점의 일정을 복사용 텍스트로 저장한다. 동행 모집은 공연·날짜·모집 정원을 입력한다.
+- 동행 모집은 작성자별 활성 글 하나만 허용한다. MVP의 현재 인원은 작성자 1명으로 표시한다. 신청은 댓글 연락으로만 처리하며 채팅방 자동 생성·채택·참여 5개 제한은 후속 단계에서 구현한다.
+- 게시글 및 댓글은 좋아요를 지원한다. 답글의 답글은 최상위 댓글에 연결하여 한 단계 깊이로 노출한다. 삭제 시 하위 좋아요와 답글을 함께 제거한다.
+
+### API 계약
+
+모든 경로는 JWT 인증이 필요하며 기준 경로는 `/api/v1/community/posts`다.
+
+| 동작 | 메서드와 경로 | 주요 입력 |
+| --- | --- | --- |
+| 목록 | `GET /` | `type=INFO/ROUTE/COMPANION`, `query`, `region`, `sort=latest/popular`, `page`, `size` |
+| 상세·댓글 | `GET /{postId}` | - |
+| 작성 | `POST /` | `type`, `title`, `content`(정보), `tags`, `tripPlanId`(참고 루트), `concertId`·`companionDate`·`capacity`(동행) |
+| 삭제 | `DELETE /{postId}` | 작성자만 가능 |
+| 게시글 좋아요·취소 | `PUT`, `DELETE /{postId}/like` | - |
+| 댓글·답글 | `POST /{postId}/comments` | `content`, 선택 `parentId` |
+| 댓글 삭제 | `DELETE /{postId}/comments/{commentId}` | 작성자만 가능 |
+| 댓글 좋아요·취소 | `PUT`, `DELETE /{postId}/comments/{commentId}/like` | - |
+
+목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다.
