@@ -50,7 +50,7 @@ public class CommunityService {
   private final ItineraryItemRepository items;
   private final ConcertRepository concerts;
 
-  public Page<CommunityDto.PostResponse> list(PostType type, String query, String region,
+  public Page<CommunityDto.PostResponse> list(User user, PostType type, String query, String region,
       String sort, int page, int size) {
     if (page < 0 || size < 1 || size > 100 || (!"latest".equals(sort) && !"popular".equals(sort))) {
       throw new BusinessException(CommunityErrorCode.INVALID_POST);
@@ -73,7 +73,8 @@ public class CommunityService {
           "%" + region.trim().toLowerCase() + "%"));
     }
     if ("popular".equals(sort)) {
-      List<CommunityDto.PostResponse> all = posts.findAll(spec).stream().map(this::toPost)
+      List<CommunityDto.PostResponse> all = posts.findAll(spec).stream()
+          .map(post -> toPost(user, post))
           .sorted((a, b) -> {
             int likes = Long.compare(b.likeCount(), a.likeCount());
             return likes != 0 ? likes : b.createdAt().compareTo(a.createdAt());
@@ -82,13 +83,14 @@ public class CommunityService {
           PageRequest.of(page, size), all.size());
     }
     return posts.findAll(spec, PageRequest.of(page, size,
-        Sort.by(Sort.Direction.DESC, "createdAt", "id"))).map(this::toPost);
+        Sort.by(Sort.Direction.DESC, "createdAt", "id"))).map(post -> toPost(user, post));
   }
 
-  public CommunityDto.PostDetailResponse detail(Long id) {
+  public CommunityDto.PostDetailResponse detail(User user, Long id) {
     Post post = findPost(id);
-    return new CommunityDto.PostDetailResponse(toPost(post),
-        comments.findByPostIdOrderByCreatedAtAscIdAsc(id).stream().map(this::toComment).toList());
+    return new CommunityDto.PostDetailResponse(toPost(user, post),
+        comments.findByPostIdOrderByCreatedAtAscIdAsc(id).stream()
+            .map(comment -> toComment(user, comment)).toList());
   }
 
   @Transactional
@@ -121,7 +123,7 @@ public class CommunityService {
         .filter(Objects::nonNull).map(String::trim).filter(t -> !t.isBlank()).toList();
     String region = request.region();
     if (region == null && concert != null) region = concert.getVenue().getAddress();
-    return toPost(posts.save(Post.create(user, request.type(), request.title().trim(), content,
+    return toPost(user, posts.save(Post.create(user, request.type(), request.title().trim(), content,
         tags, concert, tripId, request.companionDate(), request.capacity(), region)));
   }
 
@@ -160,7 +162,8 @@ public class CommunityService {
       parent = findComment(postId, request.parentId());
       if (parent.getParent() != null) parent = parent.getParent();
     }
-    return toComment(comments.save(Comment.create(post, user, parent, request.content().trim())));
+    return toComment(user, comments.save(Comment.create(post, user, parent,
+        request.content().trim())));
   }
 
   @Transactional
@@ -210,7 +213,7 @@ public class CommunityService {
     if (!user.getId().equals(authorId)) throw new BusinessException(CommunityErrorCode.FORBIDDEN);
   }
 
-  private CommunityDto.PostResponse toPost(Post post) {
+  private CommunityDto.PostResponse toPost(User user, Post post) {
     Concert concert = post.getConcert();
     return new CommunityDto.PostResponse(post.getId(), post.getType(), post.getTitle(),
         post.getContent(), post.getTags(), post.getAuthor().getId(),
@@ -218,15 +221,18 @@ public class CommunityService {
         concert == null ? null : concert.getTitle(), post.getTripPlanId(),
         post.getCompanionDate(), post.getCapacity(),
         post.getType() == PostType.COMPANION ? 1 : null, post.getRegion(),
-        postLikes.countByPostId(post.getId()), comments.countByPostId(post.getId()),
+        postLikes.countByPostId(post.getId()),
+        postLikes.existsByPostIdAndUserId(post.getId(), user.getId()),
+        comments.countByPostId(post.getId()),
         post.getCreatedAt());
   }
 
-  private CommunityDto.CommentResponse toComment(Comment comment) {
+  private CommunityDto.CommentResponse toComment(User user, Comment comment) {
     return new CommunityDto.CommentResponse(comment.getId(),
         comment.getParent() == null ? null : comment.getParent().getId(),
         comment.getAuthor().getId(), comment.getAuthor().getNickname(),
         comment.getContent(), commentLikes.countByCommentId(comment.getId()),
+        commentLikes.existsByCommentIdAndUserId(comment.getId(), user.getId()),
         comment.getCreatedAt());
   }
 

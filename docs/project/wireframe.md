@@ -78,4 +78,4 @@ OAuth만 지원한다.
 | 댓글 삭제 | `DELETE /{postId}/comments/{commentId}` | 작성자만 가능 |
 | 댓글 좋아요·취소 | `PUT`, `DELETE /{postId}/comments/{commentId}/like` | - |
 
-목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다.
+목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.
