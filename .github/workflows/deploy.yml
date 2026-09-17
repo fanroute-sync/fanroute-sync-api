@@ -30,3 +30,23 @@ jobs:
           tags: |
             ghcr.io/fanroute-sync/fanroute-sync-api:latest
             ghcr.io/fanroute-sync/fanroute-sync-api:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Redeploy via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=[
+              "aws ssm get-parameter --name /troadie/env-file --with-decryption --query Parameter.Value --output text --region ap-northeast-2 > /opt/troadie/.env",
+              "cd /opt/troadie && docker compose pull && docker compose up -d"
+            ]'
