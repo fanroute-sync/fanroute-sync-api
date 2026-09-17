@@ -36,6 +36,9 @@ services:
       redis:
         condition: service_healthy
     environment:
+      # application.yml의 spring.profiles.default가 "local"이라, 이 값을 안 주면
+      # 운영 배포인데도 local 전용 컴포넌트(AuthDebugController 등)가 활성화된다.
+      SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
