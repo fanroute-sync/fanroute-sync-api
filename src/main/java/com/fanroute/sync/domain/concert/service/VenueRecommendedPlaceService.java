@@ -39,6 +39,9 @@ public class VenueRecommendedPlaceService {
 
   public List<VenueRecommendedPlace> getRecommendations(
       Long venueId, Long concertScheduleId) {
+    if (!venueRepository.existsById(venueId)) {
+      throw new BusinessException(ConcertErrorCode.VENUE_NOT_FOUND);
+    }
     List<VenueRecommendedPlace> recommendations =
         repository.findByVenueIdOrderBySortOrderAsc(venueId);
     if (concertScheduleId == null) {
@@ -63,6 +66,14 @@ public class VenueRecommendedPlaceService {
     Place place = placeService.getPlace(request.placeId());
     return withConflictHandling(() -> repository.saveAndFlush(VenueRecommendedPlace.create(
         venue, place, request.sortOrder(), request.recommendedTimeSlot())));
+  }
+
+  /** 로컬에서 직접 만든 추천 장소 목록을 한 번에 등록합니다. 단건 등록과 같은 검증 경로를
+   *  거치며, 하나라도 실패하면 전체가 롤백됩니다. */
+  @Transactional
+  public List<VenueRecommendedPlace> importRecommendations(
+      List<VenueRecommendedPlaceDto.CreateRequest> requests) {
+    return requests.stream().map(this::create).toList();
   }
 
   @Transactional

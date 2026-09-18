@@ -28,7 +28,8 @@ public interface RecommendationTemplateApi {
           responseCode = "200", description = "추천 코스 조회 성공", useReturnTypeSchema = true)
   })
   @ApiErrorCodeExamples(type = ConcertErrorCode.class,
-      names = {"RECOMMENDATION_TEMPLATE_NOT_FOUND", "SCHEDULE_NOT_FOUND", "SCHEDULE_VENUE_MISMATCH"})
+      names = {"VENUE_NOT_FOUND", "RECOMMENDATION_TEMPLATE_NOT_FOUND", "SCHEDULE_NOT_FOUND",
+          "SCHEDULE_VENUE_MISMATCH"})
   @GetMapping
   ResponseEntity<ApiResponse<List<RecommendationTemplateDto.Response>>> getTemplates(
       @Parameter(description = "공연장 ID") @PathVariable Long venueId,

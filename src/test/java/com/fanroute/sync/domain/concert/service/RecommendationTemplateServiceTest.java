@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.concert.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalTime;
@@ -20,10 +21,12 @@ import com.fanroute.sync.domain.concert.entity.RecommendationTemplate;
 import com.fanroute.sync.domain.concert.entity.RecommendationTemplatePlace;
 import com.fanroute.sync.domain.concert.entity.Venue;
 import com.fanroute.sync.domain.concert.entity.VenueRecommendedPlace;
+import com.fanroute.sync.domain.concert.exception.ConcertErrorCode;
 import com.fanroute.sync.domain.concert.repository.RecommendationTemplatePlaceRepository;
 import com.fanroute.sync.domain.concert.repository.RecommendationTemplateRepository;
 import com.fanroute.sync.domain.concert.repository.VenueRecommendedPlaceRepository;
 import com.fanroute.sync.domain.concert.repository.VenueRepository;
+import com.fanroute.sync.global.common.exception.BusinessException;
 
 @ExtendWith(MockitoExtension.class)
 class RecommendationTemplateServiceTest {
@@ -58,6 +61,17 @@ class RecommendationTemplateServiceTest {
     when(concertScheduleService.getSchedule(5L)).thenReturn(schedule);
 
     assertThat(service().getPlaces(1L, 5L)).containsExactly(lunch);
+  }
+
+  @Test
+  @DisplayName("존재하지 않는 공연장의 추천 코스를 조회하면 예외가 발생한다")
+  void throwsWhenVenueMissingOnGetTemplates() {
+    when(venueRepository.existsById(1L)).thenReturn(false);
+
+    assertThatThrownBy(() -> service().getTemplates(1L))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ConcertErrorCode.VENUE_NOT_FOUND);
   }
 
   private RecommendationTemplateService service() {

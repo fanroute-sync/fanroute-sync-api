@@ -41,6 +41,9 @@ public class RecommendationTemplateService {
   }
 
   public List<RecommendationTemplate> getTemplates(Long venueId) {
+    if (!venueRepository.existsById(venueId)) {
+      throw new BusinessException(ConcertErrorCode.VENUE_NOT_FOUND);
+    }
     return templateRepository.findByVenueIdOrderByIdAsc(venueId);
   }
 

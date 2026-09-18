@@ -1,5 +1,6 @@
 package com.fanroute.sync.domain.concert.dto;
 
+import java.util.List;
 import java.util.Set;
 
 import com.fanroute.sync.domain.concert.entity.ConcertTimeSlot;
@@ -8,7 +9,9 @@ import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.entity.PlaceTag;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -28,6 +31,10 @@ public final class VenueRecommendedPlaceDto {
       @NotNull @Min(1) Integer sortOrder,
       @Schema(description = "추천 시간대. null이면 시간대 무관")
       ConcertTimeSlot recommendedTimeSlot) {}
+
+  public record BulkImportRequest(
+      @Schema(description = "가져올 추천 장소 목록")
+      @NotEmpty @Valid List<CreateRequest> recommendations) {}
 
   public record Response(
       Long id,

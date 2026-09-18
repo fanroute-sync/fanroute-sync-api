@@ -1,9 +1,12 @@
 package com.fanroute.sync.domain.concert.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fanroute.sync.domain.concert.dto.VenueRecommendedPlaceDto;
+import com.fanroute.sync.domain.concert.entity.VenueRecommendedPlace;
 import com.fanroute.sync.domain.concert.service.VenueRecommendedPlaceService;
 import com.fanroute.sync.global.common.response.ApiResponse;
 
@@ -14,6 +17,17 @@ import lombok.RequiredArgsConstructor;
 public class VenueRecommendedPlaceAdminController implements VenueRecommendedPlaceAdminApi {
 
   private final VenueRecommendedPlaceService service;
+
+  @Override
+  public ResponseEntity<ApiResponse<List<VenueRecommendedPlaceDto.Response>>> importRecommendations(
+      VenueRecommendedPlaceDto.BulkImportRequest request) {
+    List<VenueRecommendedPlace> recommendations =
+        service.importRecommendations(request.recommendations());
+    List<VenueRecommendedPlaceDto.Response> responses = recommendations.stream()
+        .map(VenueRecommendedPlaceDto.Response::from)
+        .toList();
+    return ApiResponse.ok(responses).toResponseEntity();
+  }
 
   @Override
   public ResponseEntity<ApiResponse<VenueRecommendedPlaceDto.Response>> create(

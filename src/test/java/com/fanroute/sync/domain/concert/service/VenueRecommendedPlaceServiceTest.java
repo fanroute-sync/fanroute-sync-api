@@ -3,6 +3,8 @@ package com.fanroute.sync.domain.concert.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalTime;
@@ -66,6 +68,7 @@ class VenueRecommendedPlaceServiceTest {
         VenueRecommendedPlace.create(venue, place, 2, ConcertTimeSlot.LUNCH);
     VenueRecommendedPlace evening =
         VenueRecommendedPlace.create(venue, place, 3, ConcertTimeSlot.EVENING);
+    when(venueRepository.existsById(1L)).thenReturn(true);
     when(repository.findByVenueIdOrderBySortOrderAsc(1L))
         .thenReturn(List.of(morning, lunch, evening));
     ConcertSchedule schedule = scheduleAt(venue, LocalTime.of(19, 0));
@@ -74,6 +77,47 @@ class VenueRecommendedPlaceServiceTest {
     List<VenueRecommendedPlace> result = service().getRecommendations(1L, 5L);
 
     assertThat(result).containsExactly(lunch, morning);
+  }
+
+  @Test
+  @DisplayName("존재하지 않는 공연장의 추천 장소를 조회하면 예외가 발생한다")
+  void throwsWhenVenueMissingOnGetRecommendations() {
+    when(venueRepository.existsById(1L)).thenReturn(false);
+
+    assertThatThrownBy(() -> service().getRecommendations(1L, null))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ConcertErrorCode.VENUE_NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("벌크 임포트하면 추천 장소가 모두 등록된다")
+  void importsRecommendations() {
+    Venue venue = venue(1L);
+    Place place = org.mockito.Mockito.mock(Place.class);
+    when(venueRepository.findById(1L)).thenReturn(Optional.of(venue));
+    when(placeService.getPlace(any())).thenReturn(place);
+    when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    List<VenueRecommendedPlace> result = service().importRecommendations(List.of(
+        new VenueRecommendedPlaceDto.CreateRequest(1L, 2L, 1, ConcertTimeSlot.LUNCH),
+        new VenueRecommendedPlaceDto.CreateRequest(1L, 3L, 2, ConcertTimeSlot.EVENING)));
+
+    assertThat(result).hasSize(2);
+    verify(repository, org.mockito.Mockito.times(2)).saveAndFlush(any());
+  }
+
+  @Test
+  @DisplayName("벌크 임포트 중 존재하지 않는 공연장이 있으면 예외가 발생하고 이후 항목은 등록되지 않는다")
+  void throwsAndStopsWhenImportVenueMissing() {
+    when(venueRepository.findById(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service().importRecommendations(List.of(
+        new VenueRecommendedPlaceDto.CreateRequest(1L, 2L, 1, null))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ConcertErrorCode.VENUE_NOT_FOUND);
+    verify(repository, never()).saveAndFlush(any());
   }
 
   @Test
