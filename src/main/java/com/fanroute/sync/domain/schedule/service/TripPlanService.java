@@ -49,8 +49,8 @@ public class TripPlanService {
         user, concert, arrivalAt, departureAt, null, List.of(), List.of()));
     List<ItineraryDay> itineraryDays = createItineraryDays(tripPlan, request, concert);
 
-    return new TripPlanDto.CreateResponse(tripPlan.getId(), request.concertId(), arrivalAt,
-        departureAt, itineraryDays.stream()
+    return new TripPlanDto.CreateResponse(tripPlan.getId(), request.concertId(),
+        arrivalAt, departureAt, itineraryDays.stream()
             .map(day -> new TripPlanDto.ItineraryDayResponse(day.getId(), day.getDate(),
                 day.isConcertDay()))
             .toList());

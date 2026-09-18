@@ -60,6 +60,13 @@ public class SecurityConfig {
             .permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/concert-schedules")
             .permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/venues/*/place-collections")
+            .permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/venues/*/itinerary-templates")
+            .permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/venues", "/api/v1/venues/*")
+            .permitAll()
+            .requestMatchers("/api/v1/internal/**").hasRole("ADMIN")
             // 관리자 경로의 권한 검사를 한 곳에서 강제합니다.
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())

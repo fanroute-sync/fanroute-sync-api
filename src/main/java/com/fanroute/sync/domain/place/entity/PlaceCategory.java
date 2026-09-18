@@ -7,6 +7,8 @@ public enum PlaceCategory {
 
   ACCOMMODATION("32"),
   ATTRACTION("12"),
+  CULTURAL_FACILITY("14"),
+  SHOPPING("38"),
   RESTAURANT("39");
 
   private final String tourApiContentTypeId;

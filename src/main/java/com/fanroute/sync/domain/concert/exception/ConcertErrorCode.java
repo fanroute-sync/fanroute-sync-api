@@ -33,7 +33,16 @@ public enum ConcertErrorCode implements BaseCode {
       HttpStatus.CONFLICT, "CONCERT_DUPLICATE_SCHEDULE_TIME", "같은 날짜·시각에 이미 등록된 회차가 있습니다."),
 
   SCHEDULE_DATE_OUT_OF_RANGE(
-      HttpStatus.BAD_REQUEST, "CONCERT_SCHEDULE_DATE_OUT_OF_RANGE", "공연 기간을 벗어난 날짜입니다.");
+      HttpStatus.BAD_REQUEST, "CONCERT_SCHEDULE_DATE_OUT_OF_RANGE", "공연 기간을 벗어난 날짜입니다."),
+
+  VENUE_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "CONCERT_VENUE_NOT_FOUND", "공연장을 찾을 수 없습니다."),
+
+  VENUE_LOCATION_NOT_FOUND(
+      HttpStatus.BAD_REQUEST, "CONCERT_VENUE_LOCATION_NOT_FOUND", "공연장 좌표를 찾을 수 없습니다."),
+
+  ITINERARY_TEMPLATE_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "CONCERT_ITINERARY_TEMPLATE_NOT_FOUND", "일정 템플릿을 찾을 수 없습니다.");
 
   private final HttpStatus httpStatus;
   private final String code;

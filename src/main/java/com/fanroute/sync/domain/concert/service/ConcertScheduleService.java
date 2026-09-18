@@ -48,7 +48,7 @@ public class ConcertScheduleService {
 
   @Transactional
   public ConcertSchedule updateSchedule(Long scheduleId, ConcertScheduleDto.UpdateRequest request) {
-    ConcertSchedule schedule = findSchedule(scheduleId);
+    ConcertSchedule schedule = getSchedule(scheduleId);
     Long concertId = schedule.getConcert().getId();
     LocalDate previousDate = schedule.getPerformanceDate();
     validateWithinConcertPeriod(schedule.getConcert(), request.performanceDate());
@@ -68,7 +68,7 @@ public class ConcertScheduleService {
 
   @Transactional
   public void deleteSchedule(Long scheduleId) {
-    ConcertSchedule schedule = findSchedule(scheduleId);
+    ConcertSchedule schedule = getSchedule(scheduleId);
     Long concertId = schedule.getConcert().getId();
     LocalDate date = schedule.getPerformanceDate();
     schedule.delete(clock.instant());
@@ -76,7 +76,7 @@ public class ConcertScheduleService {
     renumberDate(concertId, date);
   }
 
-  private ConcertSchedule findSchedule(Long scheduleId) {
+  public ConcertSchedule getSchedule(Long scheduleId) {
     return concertScheduleRepository.findWithConcertById(scheduleId)
         .orElseThrow(() -> new BusinessException(ConcertErrorCode.SCHEDULE_NOT_FOUND));
   }

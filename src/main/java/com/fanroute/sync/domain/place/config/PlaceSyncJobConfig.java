@@ -55,6 +55,16 @@ public class PlaceSyncJobConfig {
   }
 
   @Bean
+  public Job culturalFacilityPlaceSyncJob() {
+    return categoryJob(PlaceCategory.CULTURAL_FACILITY);
+  }
+
+  @Bean
+  public Job shoppingPlaceSyncJob() {
+    return categoryJob(PlaceCategory.SHOPPING);
+  }
+
+  @Bean
   public Job restaurantPlaceSyncJob() {
     return categoryJob(PlaceCategory.RESTAURANT);
   }
@@ -100,6 +110,8 @@ public class PlaceSyncJobConfig {
     return switch (category) {
       case ACCOMMODATION -> accommodationPlaceSyncJob();
       case ATTRACTION -> attractionPlaceSyncJob();
+      case CULTURAL_FACILITY -> culturalFacilityPlaceSyncJob();
+      case SHOPPING -> shoppingPlaceSyncJob();
       case RESTAURANT -> restaurantPlaceSyncJob();
     };
   }

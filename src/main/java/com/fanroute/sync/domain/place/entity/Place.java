@@ -1,16 +1,22 @@
 package com.fanroute.sync.domain.place.entity;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.fanroute.sync.global.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -97,6 +103,18 @@ public class Place extends BaseTimeEntity {
   @Column(name = "last_synced_at", nullable = false)
   private Instant lastSyncedAt;
 
+  // FetchType.EAGER만으로는 Hibernate가 항상 같은 SELECT에서 조인하지 않아, open-in-view=false
+  // 환경에서 트랜잭션 밖(응답 직렬화 시점)에 LazyInitializationException이 날 수 있다.
+  // @Fetch(JOIN)으로 로드 시점에 항상 함께 조인되도록 강제한다.
+  @ElementCollection(fetch = FetchType.EAGER)
+  @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.JOIN)
+  @CollectionTable(name = "place_tags", joinColumns = @JoinColumn(name = "place_id"),
+      uniqueConstraints = @UniqueConstraint(
+          name = "uk_place_tags_place_id_tag", columnNames = {"place_id", "tag"}))
+  @Enumerated(EnumType.STRING)
+  @Column(name = "tag", nullable = false, length = 30)
+  private Set<PlaceTag> tags = new HashSet<>();
+
   private Place(String contentId, PlaceCategory category, String contentTypeId, String name,
       String address, String detailAddress, String zipCode, Double latitude, Double longitude,
       String telephone, String imageUrl, String thumbnailUrl, String copyrightType,
@@ -166,5 +184,9 @@ public class Place extends BaseTimeEntity {
     this.sourceCreatedAt = sourceCreatedAt;
     this.sourceModifiedAt = sourceModifiedAt;
     this.lastSyncedAt = syncedAt;
+  }
+
+  public void updateTags(Set<PlaceTag> tags) {
+    this.tags = new HashSet<>(tags);
   }
 }

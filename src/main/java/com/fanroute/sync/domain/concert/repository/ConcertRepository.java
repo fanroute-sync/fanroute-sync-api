@@ -16,6 +16,8 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
   Optional<Concert> findByKopisConcertId(String kopisConcertId);
 
+  long countByVenueIdAndEndDateGreaterThanEqual(Long venueId, LocalDate from);
+
   /** OSIV가 꺼진 환경에서 DTO 변환 시 접근할 venue를 함께 조회합니다. */
   @Query("select c from Concert c join fetch c.venue where c.id = :id")
   Optional<Concert> findWithVenueById(@Param("id") Long id);

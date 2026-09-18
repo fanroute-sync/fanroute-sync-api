@@ -13,6 +13,8 @@ class PlaceCategoryTest {
   void findsCategoryByContentTypeId() {
     assertThat(PlaceCategory.fromContentTypeId("32")).isEqualTo(PlaceCategory.ACCOMMODATION);
     assertThat(PlaceCategory.fromContentTypeId("12")).isEqualTo(PlaceCategory.ATTRACTION);
+    assertThat(PlaceCategory.fromContentTypeId("14")).isEqualTo(PlaceCategory.CULTURAL_FACILITY);
+    assertThat(PlaceCategory.fromContentTypeId("38")).isEqualTo(PlaceCategory.SHOPPING);
     assertThat(PlaceCategory.fromContentTypeId("39")).isEqualTo(PlaceCategory.RESTAURANT);
   }
 

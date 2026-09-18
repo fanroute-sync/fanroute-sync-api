@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.Mock;
 
-import com.fanroute.sync.domain.concert.service.ConcertService;
 import com.fanroute.sync.domain.schedule.dto.TripPlanDto;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
 import com.fanroute.sync.domain.schedule.entity.TravelTimeSlot;
@@ -26,6 +26,7 @@ import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
 import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.domain.schedule.repository.AccommodationRepository;
+import com.fanroute.sync.domain.concert.service.ConcertService;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.support.UserFixture;
 
@@ -46,9 +47,7 @@ class TripPlanServiceTest {
   @Test
   @DisplayName("프론트 시간대 값을 KST 기준 Instant로 변환해 날짜별 일정을 생성한다")
   void createsTripPlanAndItineraryDays() {
-    TripPlanService service = new TripPlanService(
-        tripPlanRepository, itineraryDayRepository, itineraryItemRepository, accommodationRepository,
-        concertService);
+    TripPlanService service = service();
     when(tripPlanRepository.save(any(TripPlan.class))).thenAnswer(invocation -> invocation.getArgument(0));
     when(itineraryDayRepository.saveAll(any())).thenAnswer(invocation -> {
       List<ItineraryDay> days = invocation.getArgument(0);
@@ -69,9 +68,7 @@ class TripPlanServiceTest {
   @Test
   @DisplayName("도착 시각이 출발 시각보다 늦으면 여행 계획을 생성할 수 없다")
   void rejectsInvalidTripPeriod() {
-    TripPlanService service = new TripPlanService(
-        tripPlanRepository, itineraryDayRepository, itineraryItemRepository, accommodationRepository,
-        concertService);
+    TripPlanService service = service();
 
     assertThatThrownBy(() -> service.create(UserFixture.activeUser(),
         new TripPlanDto.CreateRequest(LocalDate.of(2026, 9, 3), TravelTimeSlot.EVENING,
@@ -100,7 +97,7 @@ class TripPlanServiceTest {
     TripPlan tripPlan = TripPlan.create(UserFixture.activeUser(), null,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
-    when(tripPlanRepository.findByIdAndUserId(1L, null)).thenReturn(java.util.Optional.of(tripPlan));
+    when(tripPlanRepository.findByIdAndUserId(1L, null)).thenReturn(Optional.of(tripPlan));
 
     service.deleteTripPlan(UserFixture.activeUser(), 1L);
 
