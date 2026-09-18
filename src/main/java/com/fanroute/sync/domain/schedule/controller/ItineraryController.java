@@ -62,6 +62,22 @@ public class ItineraryController {
       @PathVariable Long dayId, @Valid @RequestBody ItineraryDto.CreateItemRequest request) {
     return ApiResponse.ok(itineraryService.addItem(currentUserResolver.getCurrentUser(jwt), dayId, request)).toResponseEntity();
   }
+  @Operation(summary = "공연장 추천 장소로 일정 항목 추가",
+      description = "공연장 추천 장소를 사용자가 정한 시각으로 일정에 추가합니다. "
+          + "추가된 항목은 일반 항목과 동일하게 이후 수정·삭제할 수 있습니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "항목 추가 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = {"ITINERARY_DAY_NOT_FOUND", "RECOMMENDED_PLACE_VENUE_MISMATCH"})
+  @PostMapping("/itinerary-days/{dayId}/items/from-recommended-place")
+  public ResponseEntity<ApiResponse<ItineraryDto.ItemResponse>> addRecommendedPlace(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable Long dayId,
+      @Valid @RequestBody ItineraryDto.AddRecommendedPlaceRequest request) {
+    return ApiResponse.ok(itineraryService.addRecommendedPlace(
+        currentUserResolver.getCurrentUser(jwt), dayId, request)).toResponseEntity();
+  }
   @Operation(summary = "일정 항목 수정")
   @ApiResponses({
       @io.swagger.v3.oas.annotations.responses.ApiResponse(

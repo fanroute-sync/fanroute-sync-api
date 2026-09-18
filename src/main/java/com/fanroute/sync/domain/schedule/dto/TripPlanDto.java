@@ -19,11 +19,14 @@ public final class TripPlanDto {
       @NotNull @Schema(example = "MORNING") TravelTimeSlot arrivalTimeSlot,
       @NotNull @Schema(example = "2026-09-03") LocalDate departureDate,
       @NotNull @Schema(example = "EVENING") TravelTimeSlot departureTimeSlot,
-      @Schema(example = "1", nullable = true) Long concertId) {
+      @Schema(example = "1", nullable = true) Long concertId,
+      @Schema(description = "관람할 공연 회차. concertId가 있을 때만 의미가 있으며, "
+          + "지정해야 공연 시간대(아침/점심/저녁/밤) 기준 추천 장소를 활용할 수 있다",
+          example = "1", nullable = true) Long concertScheduleId) {
   }
 
-  public record CreateResponse(Long tripPlanId, Long concertId, Instant arrivalAt,
-      Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
+  public record CreateResponse(Long tripPlanId, Long concertId, Long concertScheduleId,
+      Instant arrivalAt, Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
   }
 
   public record ItineraryDayResponse(Long id, LocalDate date, boolean concertDay) {
@@ -34,6 +37,7 @@ public final class TripPlanDto {
   }
 
   public record DetailResponse(Long tripPlanId, Long concertId, String concertTitle,
-      Instant arrivalAt, Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
+      Long concertScheduleId, Instant arrivalAt, Instant departureAt,
+      List<ItineraryDayResponse> itineraryDays) {
   }
 }

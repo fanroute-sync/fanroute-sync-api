@@ -11,6 +11,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Venue;
+import com.fanroute.sync.domain.concert.entity.VenueRecommendedPlace;
+import com.fanroute.sync.domain.concert.service.VenueRecommendedPlaceService;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
@@ -32,6 +36,7 @@ public class ItineraryService {
   private final ItineraryDayRepository dayRepository;
   private final ItineraryItemRepository itemRepository;
   private final PlaceService placeService;
+  private final VenueRecommendedPlaceService venueRecommendedPlaceService;
 
   @Transactional(readOnly = true)
   public ItineraryDto.DayResponse getDay(User user, Long tripPlanId, LocalDate date) {
@@ -52,6 +57,29 @@ public class ItineraryService {
         .orElse(0) + 1;
     ItineraryItem item = itemRepository.save(ItineraryItem.create(day, nextOrder, request.scheduledTime(),
         request.type(), place, null, request.title(), request.durationMinutes()));
+    return toItemResponse(item);
+  }
+
+  /** 공연장 추천 장소를 사용자가 골라 자기 일정에 넣습니다. */
+  public ItineraryDto.ItemResponse addRecommendedPlace(
+      User user, Long dayId, ItineraryDto.AddRecommendedPlaceRequest request) {
+    ItineraryDay day = getOwnedDay(user, dayId);
+    VenueRecommendedPlace recommendation =
+        venueRecommendedPlaceService.getRecommendation(request.recommendationId());
+    Concert concert = day.getTripPlan().getConcert();
+    Venue recommendationVenue = recommendation.getVenue();
+    if (concert == null || !concert.getVenue().getId().equals(recommendationVenue.getId())) {
+      throw new BusinessException(ScheduleErrorCode.RECOMMENDED_PLACE_VENUE_MISMATCH);
+    }
+
+    int nextOrder = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId)
+        .stream()
+        .mapToInt(ItineraryItem::getSortOrder)
+        .max()
+        .orElse(0) + 1;
+    ItineraryItem item = itemRepository.save(ItineraryItem.create(day, nextOrder,
+        request.scheduledTime(), ItineraryItemType.PLACE, recommendation.getPlace(), null,
+        recommendation.getPlace().getName(), null));
     return toItemResponse(item);
   }
 

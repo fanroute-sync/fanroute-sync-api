@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.ConcertSchedule;
+import com.fanroute.sync.domain.concert.service.ConcertScheduleService;
 import com.fanroute.sync.domain.concert.service.ConcertService;
 import com.fanroute.sync.domain.schedule.dto.TripPlanDto;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
@@ -36,6 +38,7 @@ public class TripPlanService {
   private final ItineraryItemRepository itineraryItemRepository;
   private final AccommodationRepository accommodationRepository;
   private final ConcertService concertService;
+  private final ConcertScheduleService concertScheduleService;
 
   public TripPlanDto.CreateResponse create(User user, TripPlanDto.CreateRequest request) {
     Instant arrivalAt = toInstant(request.arrivalDate(), request.arrivalTimeSlot());
@@ -47,13 +50,28 @@ public class TripPlanService {
     Concert concert = request.concertId() == null ? null : concertService.getConcert(request.concertId());
     TripPlan tripPlan = tripPlanRepository.save(TripPlan.create(
         user, concert, arrivalAt, departureAt, null, List.of(), List.of()));
+    ConcertSchedule concertSchedule = resolveConcertSchedule(concert, request.concertScheduleId());
+    if (concertSchedule != null) {
+      tripPlan.assignConcertSchedule(concertSchedule);
+    }
     List<ItineraryDay> itineraryDays = createItineraryDays(tripPlan, request, concert);
 
-    return new TripPlanDto.CreateResponse(tripPlan.getId(), request.concertId(), arrivalAt,
-        departureAt, itineraryDays.stream()
+    return new TripPlanDto.CreateResponse(tripPlan.getId(), request.concertId(),
+        request.concertScheduleId(), arrivalAt, departureAt, itineraryDays.stream()
             .map(day -> new TripPlanDto.ItineraryDayResponse(day.getId(), day.getDate(),
                 day.isConcertDay()))
             .toList());
+  }
+
+  private ConcertSchedule resolveConcertSchedule(Concert concert, Long concertScheduleId) {
+    if (concertScheduleId == null) {
+      return null;
+    }
+    ConcertSchedule schedule = concertScheduleService.getSchedule(concertScheduleId);
+    if (concert == null || !schedule.getConcert().getId().equals(concert.getId())) {
+      throw new BusinessException(ScheduleErrorCode.CONCERT_SCHEDULE_MISMATCH);
+    }
+    return schedule;
   }
 
   @Transactional(readOnly = true)
@@ -70,7 +88,7 @@ public class TripPlanService {
         .map(day -> new TripPlanDto.ItineraryDayResponse(day.getId(), day.getDate(), day.isConcertDay()))
         .toList();
     return new TripPlanDto.DetailResponse(tripPlan.getId(), concertId(tripPlan), concertTitle(tripPlan),
-        tripPlan.getArrivalAt(), tripPlan.getDepartureAt(), days);
+        concertScheduleId(tripPlan), tripPlan.getArrivalAt(), tripPlan.getDepartureAt(), days);
   }
 
   public void deleteTripPlan(User user, Long tripPlanId) {
@@ -97,6 +115,10 @@ public class TripPlanService {
 
   private String concertTitle(TripPlan tripPlan) {
     return tripPlan.getConcert() == null ? null : tripPlan.getConcert().getTitle();
+  }
+
+  private Long concertScheduleId(TripPlan tripPlan) {
+    return tripPlan.getConcertSchedule() == null ? null : tripPlan.getConcertSchedule().getId();
   }
 
   private List<ItineraryDay> createItineraryDays(TripPlan tripPlan, TripPlanDto.CreateRequest request,

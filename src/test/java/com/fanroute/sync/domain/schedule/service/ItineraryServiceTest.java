@@ -20,6 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Genre;
+import com.fanroute.sync.domain.concert.entity.Venue;
+import com.fanroute.sync.domain.concert.entity.VenueRecommendedPlace;
+import com.fanroute.sync.domain.concert.service.VenueRecommendedPlaceService;
+import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
@@ -41,6 +46,8 @@ class ItineraryServiceTest {
   private ItineraryItemRepository itemRepository;
   @Mock
   private PlaceService placeService;
+  @Mock
+  private VenueRecommendedPlaceService venueRecommendedPlaceService;
 
   @Test
   @DisplayName("사용자 입력 일정 항목을 다음 순서로 추가한다")
@@ -116,12 +123,93 @@ class ItineraryServiceTest {
     verify(itemRepository).flush();
   }
 
+  @Test
+  @DisplayName("공연장이 일치하면 추천 장소를 사용자가 정한 시각으로 추가한다")
+  void addsRecommendedPlaceWhenVenueMatches() {
+    Venue venue = Venue.create("MT10TEST", "테스트 공연장", "부산광역시", 35.1, 129.1);
+    ReflectionTestUtils.setField(venue, "id", 1L);
+    Concert concert = Concert.create("MT20TEST", venue, "테스트 콘서트", Genre.POPULAR_MUSIC,
+        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1), null,
+        Instant.parse("2026-08-01T00:00:00Z"));
+    ItineraryDay day = itineraryDay(concert);
+    Place place = org.mockito.Mockito.mock(Place.class);
+    when(place.getName()).thenReturn("공연장 인근 식사");
+    VenueRecommendedPlace recommendation =
+        VenueRecommendedPlace.create(venue, place, 1, null);
+
+    when(dayRepository.findById(1L)).thenReturn(Optional.of(day));
+    when(venueRecommendedPlaceService.getRecommendation(5L)).thenReturn(recommendation);
+    when(itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of());
+    when(itemRepository.save(any(ItineraryItem.class))).thenAnswer(invocation -> {
+      ItineraryItem item = invocation.getArgument(0);
+      ReflectionTestUtils.setField(item, "id", 20L);
+      return item;
+    });
+
+    ItineraryDto.ItemResponse response = service().addRecommendedPlace(
+        UserFixture.activeUserWithId(1L), 1L,
+        new ItineraryDto.AddRecommendedPlaceRequest(5L, LocalTime.of(17, 30)));
+
+    assertThat(response.type()).isEqualTo(ItineraryItemType.PLACE);
+    assertThat(response.title()).isEqualTo("공연장 인근 식사");
+    assertThat(response.scheduledTime()).isEqualTo(LocalTime.of(17, 30));
+    assertThat(response.sortOrder()).isEqualTo(1);
+    assertThat(response.fixed()).isFalse();
+  }
+
+  @Test
+  @DisplayName("여행 계획에 공연이 없으면 추천 장소 추가를 거부한다")
+  void rejectsRecommendedPlaceWhenTripPlanHasNoConcert() {
+    ItineraryDay day = itineraryDay();
+    Venue venue = Venue.create("MT10OTHER", "다른 공연장", "부산광역시", 35.2, 129.2);
+    VenueRecommendedPlace recommendation = VenueRecommendedPlace.create(
+        venue, org.mockito.Mockito.mock(Place.class), 1, null);
+    when(dayRepository.findById(1L)).thenReturn(Optional.of(day));
+    when(venueRecommendedPlaceService.getRecommendation(5L)).thenReturn(recommendation);
+
+    assertThatThrownBy(() -> service().addRecommendedPlace(UserFixture.activeUserWithId(1L), 1L,
+        new ItineraryDto.AddRecommendedPlaceRequest(5L, LocalTime.of(17, 30))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.RECOMMENDED_PLACE_VENUE_MISMATCH);
+  }
+
+  @Test
+  @DisplayName("여행 계획의 공연장과 추천 장소의 공연장이 다르면 추가를 거부한다")
+  void rejectsRecommendedPlaceWhenVenueMismatches() {
+    Venue tripVenue = Venue.create("MT10TRIP", "여행 공연장", "부산광역시", 35.1, 129.1);
+    ReflectionTestUtils.setField(tripVenue, "id", 1L);
+    Concert concert = Concert.create("MT20TEST", tripVenue, "테스트 콘서트", Genre.POPULAR_MUSIC,
+        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1), null,
+        Instant.parse("2026-08-01T00:00:00Z"));
+    ItineraryDay day = itineraryDay(concert);
+    Venue recommendationVenue = Venue.create(
+        "MT10OTHER", "다른 공연장", "부산광역시", 35.2, 129.2);
+    ReflectionTestUtils.setField(recommendationVenue, "id", 2L);
+    VenueRecommendedPlace recommendation = VenueRecommendedPlace.create(
+        recommendationVenue, org.mockito.Mockito.mock(Place.class), 1, null);
+    when(dayRepository.findById(1L)).thenReturn(Optional.of(day));
+    when(venueRecommendedPlaceService.getRecommendation(5L)).thenReturn(recommendation);
+
+    assertThatThrownBy(() -> service().addRecommendedPlace(UserFixture.activeUserWithId(1L), 1L,
+        new ItineraryDto.AddRecommendedPlaceRequest(5L, LocalTime.of(17, 30))))
+        .isInstanceOf(BusinessException.class)
+        .extracting(exception -> ((BusinessException) exception).getErrorCode())
+        .isEqualTo(ScheduleErrorCode.RECOMMENDED_PLACE_VENUE_MISMATCH);
+  }
+
   private ItineraryService service() {
-    return new ItineraryService(dayRepository, itemRepository, placeService);
+    return new ItineraryService(
+        dayRepository, itemRepository, placeService, venueRecommendedPlaceService);
   }
 
   private ItineraryDay itineraryDay() {
-    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), null,
+    return itineraryDay(null);
+  }
+
+  private ItineraryDay itineraryDay(Concert concert) {
+    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), concert,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
     ItineraryDay day = ItineraryDay.create(tripPlan, LocalDate.of(2026, 9, 1), false);

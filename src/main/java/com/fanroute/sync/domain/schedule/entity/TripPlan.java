@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.ConcertSchedule;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.global.common.entity.BaseTimeEntity;
 
@@ -45,6 +46,12 @@ public class TripPlan extends BaseTimeEntity {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "concert_id")
   private Concert concert;
+
+  // 같은 공연이 여러 회차를 가질 수 있어, 공연 시간대(아침/점심/저녁/밤)를 알려면 사용자가 고른
+  // 특정 회차가 필요합니다. concert 없이 만든 여행 계획이나, 아직 회차를 안 고른 경우 null.
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "concert_schedule_id")
+  private ConcertSchedule concertSchedule;
 
   @Column(name = "arrival_at", nullable = false)
   private Instant arrivalAt;
@@ -89,5 +96,9 @@ public class TripPlan extends BaseTimeEntity {
       TravelIntensityType travelIntensity, List<String> companions, List<String> preferences) {
     return new TripPlan(
         user, concert, arrivalAt, departureAt, travelIntensity, companions, preferences);
+  }
+
+  public void assignConcertSchedule(ConcertSchedule concertSchedule) {
+    this.concertSchedule = concertSchedule;
   }
 }

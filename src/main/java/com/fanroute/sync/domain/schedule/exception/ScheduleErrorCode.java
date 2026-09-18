@@ -23,7 +23,12 @@ public enum ScheduleErrorCode implements BaseCode {
       "SCHEDULE_AI_ITINERARY_GENERATION_LIMIT_EXCEEDED", "이 여행 일정의 AI 추천 횟수를 모두 사용했습니다."),
   INVALID_ITINERARY_ITEM(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_ITINERARY_ITEM", "일정 항목 입력이 올바르지 않습니다."),
   FIXED_ITINERARY_ITEM(HttpStatus.BAD_REQUEST, "SCHEDULE_FIXED_ITINERARY_ITEM", "공연 일정 항목은 변경하거나 삭제할 수 없습니다."),
-  INVALID_TRIP_PERIOD(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_TRIP_PERIOD", "여행 기간이 올바르지 않습니다.");
+  INVALID_TRIP_PERIOD(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_TRIP_PERIOD", "여행 기간이 올바르지 않습니다."),
+  RECOMMENDED_PLACE_VENUE_MISMATCH(HttpStatus.BAD_REQUEST,
+      "SCHEDULE_RECOMMENDED_PLACE_VENUE_MISMATCH",
+      "여행 계획의 공연장과 추천 장소의 공연장이 일치하지 않습니다."),
+  CONCERT_SCHEDULE_MISMATCH(HttpStatus.BAD_REQUEST, "SCHEDULE_CONCERT_SCHEDULE_MISMATCH",
+      "선택한 회차가 이 공연의 회차가 아닙니다.");
 
   private final HttpStatus httpStatus;
   private final String code;

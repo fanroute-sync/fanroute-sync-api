@@ -13,8 +13,13 @@ import org.springframework.batch.core.launch.JobRestartException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fanroute.sync.domain.place.dto.PlaceDto;
+import com.fanroute.sync.domain.place.dto.TourApiDto;
+import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.exception.PlaceErrorCode;
+import com.fanroute.sync.domain.place.service.PlaceAdminService;
+import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.global.batch.JobRunResult;
 import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.global.common.exception.BusinessException;
@@ -29,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PlaceAdminController implements PlaceAdminApi {
 
   private final BatchJobLauncher batchJobLauncher;
+  private final PlaceAdminService placeAdminService;
+  private final PlaceService placeService;
   private final Job accommodationPlaceSyncJob;
   private final Job attractionPlaceSyncJob;
   private final Job restaurantPlaceSyncJob;
@@ -39,6 +46,29 @@ public class PlaceAdminController implements PlaceAdminApi {
         ? List.of(launchOrThrow(category))
         : launchAllIsolated();
     return ApiResponse.ok(results).toResponseEntity();
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<List<PlaceDto.NearbyCandidateResponse>>> getNearbyCandidates(
+      PlaceCategory category, double latitude, double longitude, int radiusMeters) {
+    List<TourApiDto.PlaceSummary> candidates =
+        placeAdminService.searchNearbyCandidates(category, latitude, longitude, radiusMeters);
+    List<PlaceDto.NearbyCandidateResponse> responses = candidates.stream()
+        .map(summary -> PlaceDto.NearbyCandidateResponse.from(summary, existingPlaceId(summary)))
+        .toList();
+    return ApiResponse.ok(responses).toResponseEntity();
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<PlaceDto.Response>> updateTags(
+      Long placeId, PlaceDto.UpdateTagsRequest request) {
+    return ApiResponse.ok(PlaceDto.Response.from(placeService.updateTags(placeId, request.tags())))
+        .toResponseEntity();
+  }
+
+  private Long existingPlaceId(TourApiDto.PlaceSummary summary) {
+    Place place = placeAdminService.findExistingByContentId(summary.contentId());
+    return place == null ? null : place.getId();
   }
 
   private JobRunResult launchOrThrow(PlaceCategory category) {

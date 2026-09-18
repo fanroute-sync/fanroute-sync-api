@@ -1,16 +1,22 @@
 package com.fanroute.sync.domain.place.entity;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.fanroute.sync.global.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -97,6 +103,14 @@ public class Place extends BaseTimeEntity {
   @Column(name = "last_synced_at", nullable = false)
   private Instant lastSyncedAt;
 
+  @ElementCollection(fetch = FetchType.EAGER)
+  @CollectionTable(name = "place_tags", joinColumns = @JoinColumn(name = "place_id"),
+      uniqueConstraints = @UniqueConstraint(
+          name = "uk_place_tags_place_id_tag", columnNames = {"place_id", "tag"}))
+  @Enumerated(EnumType.STRING)
+  @Column(name = "tag", nullable = false, length = 30)
+  private Set<PlaceTag> tags = new HashSet<>();
+
   private Place(String contentId, PlaceCategory category, String contentTypeId, String name,
       String address, String detailAddress, String zipCode, Double latitude, Double longitude,
       String telephone, String imageUrl, String thumbnailUrl, String copyrightType,
@@ -166,5 +180,9 @@ public class Place extends BaseTimeEntity {
     this.sourceCreatedAt = sourceCreatedAt;
     this.sourceModifiedAt = sourceModifiedAt;
     this.lastSyncedAt = syncedAt;
+  }
+
+  public void updateTags(Set<PlaceTag> tags) {
+    this.tags = new HashSet<>(tags);
   }
 }

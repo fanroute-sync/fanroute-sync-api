@@ -7,11 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com.fanroute.sync.domain.place.dto.TourApiDto;
+import com.fanroute.sync.domain.place.entity.Place;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.service.PlaceAdminService;
+import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.global.config.SecurityConfig;
 import com.fanroute.sync.global.batch.BatchJobLauncher;
 import com.fanroute.sync.support.SecurityWebMvcTestSupport;
@@ -43,6 +50,10 @@ class PlaceAdminControllerTest {
   private MockMvc mockMvc;
   @MockitoBean
   private BatchJobLauncher batchJobLauncher;
+  @MockitoBean
+  private PlaceAdminService placeAdminService;
+  @MockitoBean
+  private PlaceService placeService;
   @MockitoBean(name = "accommodationPlaceSyncJob")
   private Job accommodationPlaceSyncJob;
   @MockitoBean(name = "attractionPlaceSyncJob")
@@ -141,6 +152,49 @@ class PlaceAdminControllerTest {
         .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
     verifyNoInteractions(batchJobLauncher);
+  }
+
+  @Test
+  @DisplayName("좌표 주변 인기 장소 후보를 조회한다")
+  void getsNearbyCandidates() throws Exception {
+    when(placeAdminService.searchNearbyCandidates(PlaceCategory.RESTAURANT, 35.1691, 129.1364, 1000))
+        .thenReturn(List.of(placeSummary()));
+    Place existing = Place.create(
+        "2868824", PlaceCategory.RESTAURANT, "39", "비스포레", "부산", null, null, 35.1636, 129.1287,
+        null, null, null, null, "26", null, null, null, null, null, null,
+        java.time.Instant.now());
+    org.springframework.test.util.ReflectionTestUtils.setField(existing, "id", 7L);
+    when(placeAdminService.findExistingByContentId("2868824")).thenReturn(existing);
+
+    mockMvc.perform(get("/api/v1/admin/places/nearby-candidates")
+            .with(adminJwt())
+            .param("category", "RESTAURANT")
+            .param("latitude", "35.1691")
+            .param("longitude", "129.1364")
+            .param("radiusMeters", "1000"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].contentId").value("2868824"))
+        .andExpect(jsonPath("$.data[0].name").value("비스포레"))
+        .andExpect(jsonPath("$.data[0].existingPlaceId").value(7));
+  }
+
+  @Test
+  @DisplayName("ADMIN 권한이 없는 사용자는 인기 장소 후보 조회를 거부당한다")
+  void rejectsNonAdminUserForNearbyCandidates() throws Exception {
+    mockMvc.perform(get("/api/v1/admin/places/nearby-candidates")
+            .with(jwt().jwt(jwt -> jwt.subject("1")))
+            .param("category", "RESTAURANT")
+            .param("latitude", "35.1691")
+            .param("longitude", "129.1364"))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(placeAdminService);
+  }
+
+  private TourApiDto.PlaceSummary placeSummary() {
+    return new TourApiDto.PlaceSummary(
+        "2868824", "39", "비스포레", "부산광역시 수영구", null, null, 129.1287, 35.1637, null, null,
+        null, null, "26", null, null, null, null, null, null, 910.87);
   }
 
   private JobExecution execution(String jobName, int read, int write, int skip) {
