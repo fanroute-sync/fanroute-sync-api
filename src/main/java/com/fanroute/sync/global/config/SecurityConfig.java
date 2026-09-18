@@ -62,6 +62,8 @@ public class SecurityConfig {
             .permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/venues/*/recommended-places")
             .permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/venues/*/recommendation-templates")
+            .permitAll()
             // 관리자 경로의 권한 검사를 한 곳에서 강제합니다.
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())

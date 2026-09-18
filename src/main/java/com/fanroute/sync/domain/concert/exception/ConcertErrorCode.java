@@ -42,6 +42,22 @@ public enum ConcertErrorCode implements BaseCode {
       HttpStatus.CONFLICT, "CONCERT_DUPLICATE_RECOMMENDED_PLACE",
       "같은 공연장에 이미 등록된 장소 또는 순서가 있습니다."),
 
+  RECOMMENDATION_TEMPLATE_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "CONCERT_RECOMMENDATION_TEMPLATE_NOT_FOUND",
+      "추천 코스를 찾을 수 없습니다."),
+
+  RECOMMENDATION_TEMPLATE_PLACE_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "CONCERT_RECOMMENDATION_TEMPLATE_PLACE_NOT_FOUND",
+      "추천 코스 장소를 찾을 수 없습니다."),
+
+  DUPLICATE_RECOMMENDATION_TEMPLATE_PLACE(
+      HttpStatus.CONFLICT, "CONCERT_DUPLICATE_RECOMMENDATION_TEMPLATE_PLACE",
+      "추천 코스에 이미 등록된 장소 또는 순서가 있습니다."),
+
+  RECOMMENDED_PLACE_VENUE_MISMATCH(
+      HttpStatus.BAD_REQUEST, "CONCERT_RECOMMENDED_PLACE_VENUE_MISMATCH",
+      "추천 장소의 공연장이 코스의 공연장과 일치하지 않습니다."),
+
   VENUE_NOT_FOUND(
       HttpStatus.NOT_FOUND, "CONCERT_VENUE_NOT_FOUND", "공연장을 찾을 수 없습니다."),
 
