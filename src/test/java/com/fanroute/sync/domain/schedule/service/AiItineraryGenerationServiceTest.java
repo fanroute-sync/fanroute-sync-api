@@ -30,11 +30,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
 import com.fanroute.sync.domain.place.entity.Place;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
 import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationDeadLetter;
+import com.fanroute.sync.domain.schedule.entity.Accommodation;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationNotificationType;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
@@ -246,6 +249,10 @@ class AiItineraryGenerationServiceTest {
     Place existingPlace = place(1L);
     Place candidatePlace = place(2L);
     when(candidatePlace.getName()).thenReturn("해운대 해수욕장");
+    when(candidatePlace.getCategory()).thenReturn(PlaceCategory.ATTRACTION);
+    when(candidatePlace.getTags()).thenReturn(java.util.Set.of(PlaceTag.OCEAN_VIEW, PlaceTag.PHOTO_SPOT));
+    when(candidatePlace.getLatitude()).thenReturn(35.16);
+    when(candidatePlace.getLongitude()).thenReturn(129.16);
     ItineraryItem existingItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(10, 0),
         ItineraryItemType.PLACE, existingPlace, null, "광안리 해수욕장", 60);
     when(generationRepository.acquireForProcessing(eq(10L),
@@ -258,11 +265,25 @@ class AiItineraryGenerationServiceTest {
     when(itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(1L))
         .thenReturn(List.of(existingItem));
     when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of(candidatePlace));
+    when(accommodationRepository.findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
+        eq(1L), any(), any())).thenReturn(List.of(
+            Accommodation.create(generation.getItineraryDay().getTripPlan(), "이전 숙소", null,
+                35.10, 129.10, LocalDate.of(2026, 8, 31), LocalDate.of(2026, 9, 3)),
+            Accommodation.create(generation.getItineraryDay().getTripPlan(), "당일 숙소", null,
+                35.17, 129.17, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3)),
+            Accommodation.create(generation.getItineraryDay().getTripPlan(), "좌표 미정",
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3))));
 
     AiItineraryGenerationDto.GenerationInput input = service().start(10L);
 
     assertThat(input.placeCandidates()).extracting(AiItineraryGenerationDto.PlaceCandidate::id)
         .containsExactly(2L);
+    assertThat(input.placeCandidates().getFirst().category()).isEqualTo(PlaceCategory.ATTRACTION);
+    assertThat(input.placeCandidates().getFirst().tags())
+        .containsExactly(PlaceTag.PHOTO_SPOT, PlaceTag.OCEAN_VIEW);
+    assertThat(input.placeCandidates().getFirst().latitude()).isEqualTo(35.16);
+    assertThat(input.accommodationAnchor())
+        .isEqualTo(new AiItineraryGenerationDto.AccommodationAnchor(35.17, 129.17));
   }
 
   @Test
@@ -595,14 +616,14 @@ class AiItineraryGenerationServiceTest {
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        null, List.of(), null, List.of(), List.of(), List.of());
+        null, List.of(), null, List.of(), List.of(), List.of(), null);
   }
 
   private AiItineraryGenerationDto.GenerationInput inputWithPlaceCandidate() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), null, List.of(), List.of(),
-        List.of(new AiItineraryGenerationDto.PlaceCandidate(2L, "해운대 해수욕장", "부산")));
+        List.of(new AiItineraryGenerationDto.PlaceCandidate(2L, "해운대 해수욕장", "부산", null, List.of(), 35.16, 129.16)), null);
   }
 
   private ItineraryDay itineraryDay() {

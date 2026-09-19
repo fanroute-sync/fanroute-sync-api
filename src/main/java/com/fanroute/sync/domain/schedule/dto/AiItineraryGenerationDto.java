@@ -7,6 +7,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import com.fanroute.sync.domain.place.entity.Place;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
@@ -52,7 +55,8 @@ public final class AiItineraryGenerationDto {
       TravelMbtiType travelMbti,
       List<String> preferences,
       List<FixedItem> fixedItems,
-      List<PlaceCandidate> placeCandidates) {
+      List<PlaceCandidate> placeCandidates,
+      AccommodationAnchor accommodationAnchor) {
 
     public TimeWindow timeWindow() {
       return TimeWindow.forDate(date, arrivalAt, departureAt);
@@ -76,6 +80,16 @@ public final class AiItineraryGenerationDto {
   public record FixedItem(LocalTime scheduledTime, String title, Integer durationMinutes) {
   }
 
-  public record PlaceCandidate(Long id, String name, String address) {
+  public record PlaceCandidate(Long id, String name, String address, PlaceCategory category,
+      List<PlaceTag> tags, Double latitude, Double longitude) {
+
+    public static PlaceCandidate from(Place place) {
+      return new PlaceCandidate(place.getId(), place.getName(), place.getAddress(),
+          place.getCategory(), place.getTags().stream().sorted().toList(),
+          place.getLatitude(), place.getLongitude());
+    }
+  }
+
+  public record AccommodationAnchor(Double latitude, Double longitude) {
   }
 }

@@ -20,6 +20,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.fanroute.sync.domain.schedule.config.GeminiProperties;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
 import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
@@ -95,6 +97,9 @@ class GeminiRestClientTest {
         .andExpect(content().string(containsString("id=1")))
         .andExpect(content().string(containsString("id=2")))
         .andExpect(content().string(containsString("id=3")))
+        .andExpect(content().string(containsString("category=ATTRACTION, tags=[OCEAN_VIEW]")))
+        .andExpect(content().string(containsString("lat=35.16, lon=129.16")))
+        .andExpect(content().string(containsString("숙소 기준점: lat=35.17, lon=129.17")))
         .andRespond(withSuccess(response("{\\\"items\\\":[]}"), MediaType.APPLICATION_JSON));
 
     GeminiProperties properties = new GeminiProperties();
@@ -113,16 +118,18 @@ class GeminiRestClientTest {
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of());
+        TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of(), null);
   }
 
   private AiItineraryGenerationDto.GenerationInput inputWithCandidates() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of(
-            new AiItineraryGenerationDto.PlaceCandidate(1L, "장소 1", "부산"),
-            new AiItineraryGenerationDto.PlaceCandidate(2L, "장소 2", "부산"),
-            new AiItineraryGenerationDto.PlaceCandidate(3L, "장소 3", "부산")));
+            new AiItineraryGenerationDto.PlaceCandidate(1L, "장소 1", "부산", PlaceCategory.ATTRACTION,
+                List.of(PlaceTag.OCEAN_VIEW), 35.16, 129.16),
+            new AiItineraryGenerationDto.PlaceCandidate(2L, "장소 2", "부산", null, List.of(), 35.16, 129.16),
+            new AiItineraryGenerationDto.PlaceCandidate(3L, "장소 3", "부산", null, List.of(), 35.16, 129.16)),
+        new AiItineraryGenerationDto.AccommodationAnchor(35.17, 129.17));
   }
 
   private String response(String text) {

@@ -21,6 +21,7 @@ import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
 import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
+import com.fanroute.sync.domain.schedule.entity.Accommodation;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationDeadLetter;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationNotificationType;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
@@ -122,23 +123,29 @@ public class AiItineraryGenerationService {
             item.getDurationMinutes()))
         .toList();
     Set<Long> existingPlaceIds = findTripPlanPlaceIds(day.getTripPlan().getId());
+    List<Accommodation> accommodations = accommodationRepository
+        .findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
+            day.getTripPlan().getId(), day.getDate(), day.getDate());
+    AiItineraryGenerationDto.AccommodationAnchor anchor = accommodations.stream()
+        .filter(accommodation -> accommodation.getLatitude() != null
+            && accommodation.getLongitude() != null)
+        .max(Comparator.comparing(Accommodation::getCheckinDate))
+        .map(accommodation -> new AiItineraryGenerationDto.AccommodationAnchor(
+            accommodation.getLatitude(), accommodation.getLongitude()))
+        .orElse(null);
     List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = candidateRanker.rank(
             placeRepository.findByCategoryNotAndLatitudeIsNotNullAndLongitudeIsNotNull(
                 PlaceCategory.ACCOMMODATION),
-            existingPlaceIds,
-            accommodationRepository
-                .findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
-                    day.getTripPlan().getId(), day.getDate(), day.getDate()),
+            existingPlaceIds, accommodations,
             day.getTripPlan().getTravelMbti(), day.getTripPlan().getCompanions()).stream()
-        .map(place -> new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
-            place.getAddress()))
+        .map(AiItineraryGenerationDto.PlaceCandidate::from)
         .toList();
 
     return new AiItineraryGenerationDto.GenerationInput(day.getDate(),
         day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt(),
         day.getTripPlan().getTravelIntensity(), day.getTripPlan().getCompanions(),
         day.getTripPlan().getTravelMbti(), day.getTripPlan().getPreferences(), fixedItems,
-        placeCandidates);
+        placeCandidates, anchor);
   }
 
   @Transactional(readOnly = true)

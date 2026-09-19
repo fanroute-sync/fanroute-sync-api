@@ -89,6 +89,8 @@ public class GeminiRestClient {
         + "모든 시각은 Asia/Seoul(한국 시간)이다. 허용 시간 안에서 시작하고 종료해라. 자정을 넘기지 마라.\n"
         + "생성 항목끼리도 체류시간이 겹치면 안 된다. 앞 일정 종료와 다음 일정 시작이 같은 것은 허용한다.\n"
         + "기존 일정의 시각 미정은 시간 제약에서 제외하고, 체류시간 미정은 시작 시점만 피하며 종료 시각을 추측하지 마라.\n"
+        + "장소 카테고리와 태그로 취향을 반영하고 좌표와 숙소 기준점을 참고해 불필요한 왕복을 줄여라.\n"
+        + "좌표는 도로 이동시간이 아니다. 제공되지 않은 영업시간이나 정확한 이동시간을 사실처럼 추측하지 마라.\n"
         + "이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.\n"
         + "장소 후보 중 선택한 장소는 해당 placeId만 넣고, 후보 외 장소는 placeId를 null로 둬라.\n"
         + "일반 일정은 여행 강도에 맞춰 최대 %d개만 생성해라. time은 HH:mm, durationMinutes는 1 이상의 정수로 반환해라."
@@ -104,8 +106,9 @@ public class GeminiRestClient {
             item.durationMinutes() == null ? "체류시간 미정" : item.durationMinutes() + "분"))
         .toList().toString();
     String placeCandidates = candidates.stream()
-        .map(place -> "id=%d, name=%s, address=%s".formatted(place.id(), place.name(),
-            place.address() == null ? "" : place.address()))
+        .map(place -> "id=%d, name=%s, address=%s, category=%s, tags=%s, lat=%s, lon=%s"
+            .formatted(place.id(), place.name(), place.address() == null ? "" : place.address(),
+                place.category(), place.tags(), place.latitude(), place.longitude()))
         .toList().toString();
 
     return """
@@ -115,11 +118,14 @@ public class GeminiRestClient {
         동행: %s
         여행 MBTI: %s
         선호: %s
+        숙소 기준점: %s
         기존 일정: %s
         장소 후보: %s
         """.formatted(input.date(), input.timeWindow().start(), input.timeWindow().end(),
-        input.travelIntensity(), companionLabels(input), travelMbtiLabel(input), input.preferences(), fixedItems,
-        placeCandidates);
+        input.travelIntensity(), companionLabels(input), travelMbtiLabel(input), input.preferences(),
+        input.accommodationAnchor() == null ? "좌표 없음" : "lat=%s, lon=%s".formatted(
+            input.accommodationAnchor().latitude(), input.accommodationAnchor().longitude()),
+        fixedItems, placeCandidates);
   }
 
   private List<String> companionLabels(AiItineraryGenerationDto.GenerationInput input) {
