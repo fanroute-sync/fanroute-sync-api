@@ -1,0 +1,4 @@
+variant,requests,apiSuccess,valid,meanMs,p50Ms,p95Ms,promptTokens,outputTokens,thoughtsTokens,totalTokens,tagMatchRate,tagMatchCount,tagMatchDenominator,straightLineKm,straightLineKmDenominator,customRate,customCount,customDenominator,constraintDenominator,compliance_item_count,compliance_travel_window,compliance_existing_overlap,compliance_generated_overlap,compliance_duration,compliance_title,compliance_unknown_place,compliance_duplicate_place,compliance_time_format,compliance_invalid_item,compliance_empty_or_invalid_items,compliance_finish_reason
+baseline,15,7,5,832.6,422.44,1471.34,3432,1076,0,4508,0.4211,8,19,4.0777,7,0.0,0,19,7,1.0,0.7143,0.8571,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+minimal,17,10,10,967.04,1321.59,1485.04,10112,1375,0,11487,0.2917,7,24,2.9324,10,0.0,0,24,10,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+low,20,12,12,1009.93,1298.33,1707.17,11754,1767,0,13521,0.1613,5,31,0.5706,12,0.0,0,31,12,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0

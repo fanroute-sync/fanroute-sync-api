@@ -218,7 +218,7 @@ def summarize(output):
             customCount=custom_count, customDenominator=item_denominator,
             constraintDenominator=constraint_denominator, **compliance))
     with (output/'summary.csv').open('w') as f:
-        writer=csv.DictWriter(f,fieldnames=list(table[0])); writer.writeheader(); writer.writerows(table)
+        writer=csv.DictWriter(f,fieldnames=list(table[0]),lineterminator='\n'); writer.writeheader(); writer.writerows(table)
     lines=['# AI 일정 생성 비교 실험', '',
            '동일 합성 시나리오를 고정 seed로 섞어 순차 호출한 결과다. 운영 서비스의 before/after 실측이 아니다.', '',
            '| 조건 | 요청 | HTTP 성공 | 전체 제약 준수 | 평균 ms | p50 ms | p95 ms | 총 토큰 |',
