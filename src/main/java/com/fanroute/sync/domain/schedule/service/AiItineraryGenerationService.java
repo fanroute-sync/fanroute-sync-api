@@ -3,6 +3,7 @@ package com.fanroute.sync.domain.schedule.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -168,7 +169,7 @@ public class AiItineraryGenerationService {
     int nextSortOrder = existingItems.stream().mapToInt(ItineraryItem::getSortOrder).max()
         .orElse(0) + 1;
     List<GeminiDto.GeneratedItem> sortedItems = generatedItems.stream()
-        .sorted(Comparator.comparing(item -> LocalTime.parse(item.scheduledTime())))
+        .sorted(Comparator.comparing(item -> parseScheduledTime(item.scheduledTime())))
         .toList();
     List<ItineraryItem> newItems = IntStream.range(0, sortedItems.size())
         .mapToObj(index -> {
@@ -318,7 +319,7 @@ public class AiItineraryGenerationService {
     }
     for (GeminiDto.GeneratedItem item : generatedItinerary.items()) {
       try {
-        LocalTime.parse(item.scheduledTime());
+        parseScheduledTime(item.scheduledTime());
       } catch (RuntimeException exception) {
         throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
       }
@@ -378,7 +379,7 @@ public class AiItineraryGenerationService {
         .map(ItineraryItem::getScheduledTime)
         .toList();
     boolean conflicts = generatedItems.stream()
-        .map(item -> LocalTime.parse(item.scheduledTime()))
+        .map(item -> parseScheduledTime(item.scheduledTime()))
         .anyMatch(concertTimes::contains);
     if (conflicts) {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
@@ -389,7 +390,15 @@ public class AiItineraryGenerationService {
       GeminiDto.GeneratedItem item, Place place) {
     ItineraryItemType type = place == null ? ItineraryItemType.CUSTOM : ItineraryItemType.PLACE;
     String title = place == null ? item.title() : place.getName();
-    return ItineraryItem.create(day, sortOrder, LocalTime.parse(item.scheduledTime()), type, place,
+    return ItineraryItem.create(day, sortOrder, parseScheduledTime(item.scheduledTime()), type, place,
         null, title, item.durationMinutes());
+  }
+
+  private LocalTime parseScheduledTime(String scheduledTime) {
+    try {
+      return LocalTime.parse(scheduledTime);
+    } catch (RuntimeException exception) {
+      return OffsetTime.parse(scheduledTime).toLocalTime();
+    }
   }
 }

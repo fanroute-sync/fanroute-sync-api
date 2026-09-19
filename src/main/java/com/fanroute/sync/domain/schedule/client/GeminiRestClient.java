@@ -123,7 +123,7 @@ public class GeminiRestClient {
             "time", Map.of("type", "string", "format", "time"),
             "title", Map.of("type", "string", "minLength", 1, "maxLength", 200),
             "durationMinutes", Map.of("type", "integer", "minimum", 1, "maximum", 720),
-            "placeId", Map.of("type", List.of("integer", "null"))),
+            "placeId", Map.of("type", "integer")),
         "required", List.of("time", "title", "durationMinutes", "placeId"));
     return Map.of(
         "type", "object",
