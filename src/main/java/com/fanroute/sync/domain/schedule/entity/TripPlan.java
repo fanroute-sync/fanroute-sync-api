@@ -54,6 +54,9 @@ public class TripPlan extends BaseTimeEntity {
   @Column(name = "travel_intensity", length = 20)
   private TravelIntensityType travelIntensity;
 
+  @Column(name = "travel_mbti", length = 30)
+  private String travelMbti;
+
   @ElementCollection
   @CollectionTable(name = "trip_plan_companions", joinColumns = @JoinColumn(name = "trip_plan_id"))
   @OrderColumn(name = "display_order")
@@ -81,5 +84,12 @@ public class TripPlan extends BaseTimeEntity {
       TravelIntensityType travelIntensity, List<String> companions, List<String> preferences) {
     return new TripPlan(
         user, concert, arrivalAt, departureAt, travelIntensity, companions, preferences);
+  }
+
+  public void updateTravelStyle(TravelIntensityType travelIntensity, List<String> companions,
+      String travelMbti) {
+    this.travelIntensity = travelIntensity;
+    this.companions = new ArrayList<>(companions);
+    this.travelMbti = travelMbti;
   }
 }

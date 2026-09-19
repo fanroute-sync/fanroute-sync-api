@@ -5,10 +5,12 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.fanroute.sync.domain.schedule.entity.TravelTimeSlot;
+import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -60,5 +62,15 @@ public final class TripPlanDto {
 
   public record ReplaceAccommodationsRequest(
       @NotNull @Size(max = 10) List<@Valid CreateAccommodationRequest> accommodations) {
+  }
+
+  public record UpdateTravelStyleRequest(
+      @NotNull TravelIntensityType travelIntensity,
+      @NotNull @Size(min = 1, max = 10) List<@NotBlank @Size(max = 30) String> companions,
+      @NotBlank @Size(max = 30) String travelMbti) {
+  }
+
+  public record TravelStyleResponse(TravelIntensityType travelIntensity, List<String> companions,
+      String travelMbti) {
   }
 }
