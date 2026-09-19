@@ -16,5 +16,5 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
 
   Page<Place> findByCategory(PlaceCategory category, Pageable pageable);
 
-  List<Place> findTop20ByOrderByIdAsc();
+  List<Place> findByCategoryNotAndLatitudeIsNotNullAndLongitudeIsNotNull(PlaceCategory category);
 }
