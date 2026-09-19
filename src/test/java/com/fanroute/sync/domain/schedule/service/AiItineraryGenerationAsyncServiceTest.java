@@ -24,6 +24,7 @@ import com.fanroute.sync.domain.schedule.client.GeminiDto;
 import com.fanroute.sync.domain.schedule.client.GeminiRestClient;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.global.common.exception.BusinessException;
 
@@ -138,7 +139,7 @@ class AiItineraryGenerationAsyncServiceTest {
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of(), "맛집탐방형", List.of(), List.of(), List.of());
+        TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of());
   }
 
   private GeminiDto.GenerationResult generationResult(GeminiDto.GeneratedItinerary itinerary) {

@@ -15,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fanroute.sync.domain.schedule.dto.TripPlanDto;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
+import com.fanroute.sync.domain.schedule.entity.CompanionType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.repository.TripPlanRepository;
 import com.fanroute.sync.support.UserFixture;
@@ -35,11 +37,11 @@ class TravelStyleServiceTest {
 
     TripPlanDto.TravelStyleResponse response = service().update(UserFixture.activeUser(), 1L,
         new TripPlanDto.UpdateTravelStyleRequest(TravelIntensityType.TIGHT,
-            List.of("친구", "아이"), "맛집탐방형"));
+            List.of(CompanionType.FRIEND, CompanionType.CHILD), TravelMbtiType.FOOD_EXPLORER));
 
     assertThat(response.travelIntensity()).isEqualTo(TravelIntensityType.TIGHT);
-    assertThat(response.companions()).containsExactly("친구", "아이");
-    assertThat(response.travelMbti()).isEqualTo("맛집탐방형");
+    assertThat(response.companions()).containsExactly(CompanionType.FRIEND, CompanionType.CHILD);
+    assertThat(response.travelMbti()).isEqualTo(TravelMbtiType.FOOD_EXPLORER);
     assertThat(tripPlan.getPreferences()).containsExactly("맛집");
   }
 

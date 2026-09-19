@@ -22,6 +22,7 @@ import org.springframework.web.client.RestClient;
 import com.fanroute.sync.domain.schedule.config.GeminiProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -110,13 +111,13 @@ class GeminiRestClientTest {
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of(), "맛집탐방형", List.of(), List.of(), List.of());
+        TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of());
   }
 
   private AiItineraryGenerationDto.GenerationInput inputWithCandidates() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of(), "맛집탐방형", List.of(), List.of(), List.of(
+        TravelIntensityType.RELAXED, List.of(), TravelMbtiType.FOOD_EXPLORER, List.of(), List.of(), List.of(
             new AiItineraryGenerationDto.PlaceCandidate(1L, "장소 1", "부산"),
             new AiItineraryGenerationDto.PlaceCandidate(2L, "장소 2", "부산"),
             new AiItineraryGenerationDto.PlaceCandidate(3L, "장소 3", "부산")));

@@ -20,13 +20,13 @@ class ScheduleEntityTest {
     TripPlan tripPlan = TripPlan.create(
         UserFixture.activeUser(), null,
         Instant.parse("2026-09-01T01:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of("친구", "아이"), List.of("맛집", "관광"));
+        TravelIntensityType.RELAXED, List.of(CompanionType.FRIEND, CompanionType.CHILD), List.of("맛집", "관광"));
 
     assertThat(tripPlan.getConcert()).isNull();
     assertThat(tripPlan.getArrivalAt()).isEqualTo(Instant.parse("2026-09-01T01:00:00Z"));
     assertThat(tripPlan.getDepartureAt()).isEqualTo(Instant.parse("2026-09-03T09:00:00Z"));
     assertThat(tripPlan.getTravelIntensity()).isEqualTo(TravelIntensityType.RELAXED);
-    assertThat(tripPlan.getCompanions()).containsExactly("친구", "아이");
+    assertThat(tripPlan.getCompanions()).containsExactly(CompanionType.FRIEND, CompanionType.CHILD);
     assertThat(tripPlan.getPreferences()).containsExactly("맛집", "관광");
   }
 

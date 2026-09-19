@@ -8,6 +8,8 @@ import java.util.List;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
+import com.fanroute.sync.domain.schedule.entity.CompanionType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -44,8 +46,8 @@ public final class AiItineraryGenerationDto {
       Instant arrivalAt,
       Instant departureAt,
       TravelIntensityType travelIntensity,
-      List<String> companions,
-      String travelMbti,
+      List<CompanionType> companions,
+      TravelMbtiType travelMbti,
       List<String> preferences,
       List<FixedItem> fixedItems,
       List<PlaceCandidate> placeCandidates) {

@@ -10,6 +10,7 @@ import com.fanroute.sync.global.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -55,13 +56,15 @@ public class TripPlan extends BaseTimeEntity {
   private TravelIntensityType travelIntensity;
 
   @Column(name = "travel_mbti", length = 30)
-  private String travelMbti;
+  @Convert(converter = TravelMbtiTypeConverter.class)
+  private TravelMbtiType travelMbti;
 
   @ElementCollection
   @CollectionTable(name = "trip_plan_companions", joinColumns = @JoinColumn(name = "trip_plan_id"))
   @OrderColumn(name = "display_order")
   @Column(name = "companion", nullable = false, length = 30)
-  private List<String> companions = new ArrayList<>();
+  @Convert(converter = CompanionTypeConverter.class)
+  private List<CompanionType> companions = new ArrayList<>();
 
   @ElementCollection
   @CollectionTable(name = "trip_plan_preferences", joinColumns = @JoinColumn(name = "trip_plan_id"))
@@ -70,7 +73,7 @@ public class TripPlan extends BaseTimeEntity {
   private List<String> preferences = new ArrayList<>();
 
   private TripPlan(User user, Concert concert, Instant arrivalAt, Instant departureAt,
-      TravelIntensityType travelIntensity, List<String> companions, List<String> preferences) {
+      TravelIntensityType travelIntensity, List<CompanionType> companions, List<String> preferences) {
     this.user = user;
     this.concert = concert;
     this.arrivalAt = arrivalAt;
@@ -81,13 +84,13 @@ public class TripPlan extends BaseTimeEntity {
   }
 
   public static TripPlan create(User user, Concert concert, Instant arrivalAt, Instant departureAt,
-      TravelIntensityType travelIntensity, List<String> companions, List<String> preferences) {
+      TravelIntensityType travelIntensity, List<CompanionType> companions, List<String> preferences) {
     return new TripPlan(
         user, concert, arrivalAt, departureAt, travelIntensity, companions, preferences);
   }
 
-  public void updateTravelStyle(TravelIntensityType travelIntensity, List<String> companions,
-      String travelMbti) {
+  public void updateTravelStyle(TravelIntensityType travelIntensity, List<CompanionType> companions,
+      TravelMbtiType travelMbti) {
     this.travelIntensity = travelIntensity;
     this.companions = new ArrayList<>(companions);
     this.travelMbti = travelMbti;

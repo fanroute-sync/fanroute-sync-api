@@ -114,8 +114,16 @@ public class GeminiRestClient {
         고정 일정: %s
         장소 후보: %s
         """.formatted(input.date(), input.arrivalAt(), input.departureAt(),
-        input.travelIntensity(), input.companions(), input.travelMbti(), input.preferences(), fixedItems,
+        input.travelIntensity(), companionLabels(input), travelMbtiLabel(input), input.preferences(), fixedItems,
         placeCandidates);
+  }
+
+  private List<String> companionLabels(AiItineraryGenerationDto.GenerationInput input) {
+    return input.companions().stream().map(companion -> companion.getLabel()).toList();
+  }
+
+  private String travelMbtiLabel(AiItineraryGenerationDto.GenerationInput input) {
+    return input.travelMbti() == null ? null : input.travelMbti().getLabel();
   }
 
   private static Map<String, Object> createItinerarySchema() {
