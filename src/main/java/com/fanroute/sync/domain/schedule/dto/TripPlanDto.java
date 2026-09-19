@@ -6,6 +6,8 @@ import java.util.List;
 
 import com.fanroute.sync.domain.schedule.entity.TravelTimeSlot;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
+import com.fanroute.sync.domain.schedule.entity.CompanionType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -66,11 +68,16 @@ public final class TripPlanDto {
 
   public record UpdateTravelStyleRequest(
       @NotNull TravelIntensityType travelIntensity,
-      @NotNull @Size(min = 1, max = 10) List<@NotBlank @Size(max = 30) String> companions,
-      @NotBlank @Size(max = 30) String travelMbti) {
+      @NotNull @Size(min = 1, max = 10)
+      @Schema(description = "복수 선택 동행", allowableValues = {"친구", "연인", "혼자", "부모님", "아이"})
+      List<CompanionType> companions,
+      @NotNull
+      @Schema(description = "여행 MBTI", allowableValues = {
+          "맛집탐방형", "감성사진형", "역사문화형", "자연힐링형", "쇼핑집중형", "카페투어형", "액티비티형", "로컬체험형", "공연몰입형"})
+      TravelMbtiType travelMbti) {
   }
 
-  public record TravelStyleResponse(TravelIntensityType travelIntensity, List<String> companions,
-      String travelMbti) {
+  public record TravelStyleResponse(TravelIntensityType travelIntensity, List<CompanionType> companions,
+      TravelMbtiType travelMbti) {
   }
 }

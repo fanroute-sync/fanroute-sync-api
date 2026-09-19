@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.schedule.entity.Accommodation;
+import com.fanroute.sync.domain.schedule.entity.CompanionType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 
 class AiPlaceCandidateRankerTest {
 
@@ -27,7 +29,7 @@ class AiPlaceCandidateRankerTest {
     Place distantRestaurant = place(3L, "먼 식당", 35.4000, 129.1604, Set.of(PlaceTag.FOOD));
 
     List<Place> result = ranker.rank(List.of(distantRestaurant, nearbyRestaurant, nearbyCafe),
-        Set.of(), List.of(accommodation), "맛집탐방형", List.of());
+        Set.of(), List.of(accommodation), TravelMbtiType.FOOD_EXPLORER, List.of());
 
     assertThat(result).extracting(Place::getId).containsExactly(2L, 1L, 3L);
   }
@@ -39,7 +41,7 @@ class AiPlaceCandidateRankerTest {
     Place candidatePlace = place(2L, "새 장소", 35.1588, 129.1604, Set.of(PlaceTag.CAFE));
 
     List<Place> result = ranker.rank(List.of(existingPlace, candidatePlace), Set.of(1L),
-        List.of(), null, List.of("연인"));
+        List.of(), null, List.of(CompanionType.PARTNER));
 
     assertThat(result).extracting(Place::getId).containsExactly(2L);
   }

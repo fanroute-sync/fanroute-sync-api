@@ -11,25 +11,27 @@ import org.springframework.stereotype.Component;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.schedule.entity.Accommodation;
+import com.fanroute.sync.domain.schedule.entity.CompanionType;
+import com.fanroute.sync.domain.schedule.entity.TravelMbtiType;
 
 @Component
 public class AiPlaceCandidateRanker {
 
   private static final double DISTANCE_SCORE_RANGE_KM = 20.0;
   private static final int MAX_CANDIDATES = 10;
-  private static final Map<String, Set<PlaceTag>> MBTI_TAGS = Map.of(
-      "맛집탐방형", Set.of(PlaceTag.FOOD),
-      "감성사진형", Set.of(PlaceTag.PHOTO_SPOT, PlaceTag.CAFE, PlaceTag.OCEAN_VIEW),
-      "역사문화형", Set.of(PlaceTag.INDOOR),
-      "자연힐링형", Set.of(PlaceTag.PARK, PlaceTag.OCEAN_VIEW),
-      "쇼핑집중형", Set.of(PlaceTag.INDOOR),
-      "카페투어형", Set.of(PlaceTag.CAFE),
-      "액티비티형", Set.of(PlaceTag.PARK),
-      "로컬체험형", Set.of(PlaceTag.FOOD),
-      "공연몰입형", Set.of(PlaceTag.INDOOR));
+  private static final Map<TravelMbtiType, Set<PlaceTag>> MBTI_TAGS = Map.of(
+      TravelMbtiType.FOOD_EXPLORER, Set.of(PlaceTag.FOOD),
+      TravelMbtiType.PHOTO_SENSIBILITY, Set.of(PlaceTag.PHOTO_SPOT, PlaceTag.CAFE, PlaceTag.OCEAN_VIEW),
+      TravelMbtiType.HISTORY_CULTURE, Set.of(PlaceTag.INDOOR),
+      TravelMbtiType.NATURE_HEALING, Set.of(PlaceTag.PARK, PlaceTag.OCEAN_VIEW),
+      TravelMbtiType.SHOPPING_FOCUS, Set.of(PlaceTag.INDOOR),
+      TravelMbtiType.CAFE_TOUR, Set.of(PlaceTag.CAFE),
+      TravelMbtiType.ACTIVITY, Set.of(PlaceTag.PARK),
+      TravelMbtiType.LOCAL_EXPERIENCE, Set.of(PlaceTag.FOOD),
+      TravelMbtiType.CONCERT_FOCUS, Set.of(PlaceTag.INDOOR));
 
   public List<Place> rank(List<Place> places, Set<Long> existingPlaceIds,
-      List<Accommodation> accommodations, String travelMbti, List<String> companions) {
+      List<Accommodation> accommodations, TravelMbtiType travelMbti, List<CompanionType> companions) {
     Optional<Coordinates> anchor = accommodations.stream()
         .filter(accommodation -> accommodation.getLatitude() != null
             && accommodation.getLongitude() != null)
@@ -64,15 +66,15 @@ public class AiPlaceCandidateRanker {
     return new ScoredPlace(place, distanceScore + mbtiScore + companionScore);
   }
 
-  private Set<PlaceTag> companionTags(List<String> companions) {
+  private Set<PlaceTag> companionTags(List<CompanionType> companions) {
     if (companions == null) {
       return Set.of();
     }
     java.util.HashSet<PlaceTag> tags = new java.util.HashSet<>();
-    if (companions.contains("아이")) {
+    if (companions.contains(CompanionType.CHILD)) {
       tags.add(PlaceTag.FAMILY);
     }
-    if (companions.contains("연인")) {
+    if (companions.contains(CompanionType.PARTNER)) {
       tags.add(PlaceTag.DATE);
     }
     return tags;
