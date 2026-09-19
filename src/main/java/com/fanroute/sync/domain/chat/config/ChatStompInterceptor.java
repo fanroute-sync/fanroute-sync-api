@@ -53,7 +53,9 @@ public class ChatStompInterceptor implements ChannelInterceptor {
     String prefix = destination.startsWith("/app/chat.rooms/") ? "/app/chat.rooms/"
         : destination.startsWith("/user/queue/chat.rooms/") ? "/user/queue/chat.rooms/" : null;
     if (prefix == null) return null;
-    String suffix = destination.substring(prefix.length()).replace("/messages", "");
-    try { return Long.valueOf(suffix); } catch (NumberFormatException ignored) { return null; }
+    String suffix = destination.substring(prefix.length());
+    int separator = suffix.indexOf('/');
+    String id = separator < 0 ? suffix : suffix.substring(0, separator);
+    try { return Long.valueOf(id); } catch (NumberFormatException ignored) { return null; }
   }
 }

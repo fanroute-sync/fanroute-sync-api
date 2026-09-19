@@ -109,5 +109,6 @@ OAuth만 지원한다.
 | 읽음 처리 | `PATCH /api/v1/chat/rooms/{roomId}/read` | `lastReadMessageId` |
 | 실시간 전송 | STOMP `/app/chat.rooms/{roomId}/messages` | `content` |
 | 실시간 수신 | STOMP `/user/queue/chat.rooms/{roomId}` | - |
+| 실시간 읽음 상태 수신 | STOMP `/user/queue/chat.rooms/{roomId}/reads` | `userId`, `lastReadMessageId` |
 
-목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.
+목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 활성 채팅방 참여자 수다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.
