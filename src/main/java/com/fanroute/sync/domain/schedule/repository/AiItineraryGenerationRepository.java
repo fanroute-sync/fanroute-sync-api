@@ -18,6 +18,17 @@ public interface AiItineraryGenerationRepository extends JpaRepository<AiItinera
 
   Optional<AiItineraryGeneration> findByIdAndItineraryDayTripPlanUserId(Long generationId, Long userId);
 
+  @Query("""
+      select distinct generation
+      from AiItineraryGeneration generation
+      join fetch generation.itineraryDay day
+      join fetch day.tripPlan tripPlan
+      left join fetch tripPlan.companions
+      left join fetch tripPlan.preferences
+      where generation.id = :generationId
+      """)
+  Optional<AiItineraryGeneration> findByIdForProcessing(@Param("generationId") Long generationId);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select generation from AiItineraryGeneration generation where generation.id = :generationId")
   Optional<AiItineraryGeneration> findByIdForUpdate(@Param("generationId") Long generationId);

@@ -100,7 +100,7 @@ public class AiItineraryGenerationService {
       return null;
     }
 
-    AiItineraryGeneration generation = generationRepository.findById(generationId)
+    AiItineraryGeneration generation = generationRepository.findByIdForProcessing(generationId)
         .orElseThrow(() -> new BusinessException(
             ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
     if (generation.getAttemptCount() == 1 && generation.getCreatedAt() != null) {

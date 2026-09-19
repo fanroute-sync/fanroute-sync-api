@@ -215,7 +215,7 @@ class AiItineraryGenerationServiceTest {
         eq(AiItineraryGenerationStatus.PENDING),
         eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
         .thenReturn(1);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(concertItem));
     when(placeRepository.findTop20ByOrderByIdAsc()).thenReturn(List.of());
@@ -242,7 +242,7 @@ class AiItineraryGenerationServiceTest {
         eq(AiItineraryGenerationStatus.PENDING),
         eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
         .thenReturn(1);
-    when(generationRepository.findById(10L)).thenReturn(Optional.of(generation));
+    when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(existingItem));
     when(placeRepository.findTop20ByOrderByIdAsc()).thenReturn(List.of(existingPlace, candidatePlace));
