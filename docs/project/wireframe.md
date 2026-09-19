@@ -60,7 +60,11 @@ OAuth만 지원한다.
 
 - 게시글 목록은 검색어(제목·공연명·공연장명·태그), 유형, 지역 필터를 지원한다. 기본 정렬은 최신순이며 인기순은 좋아요 수 기준이다.
 - 정보 공유는 본문을 입력한다. 참고 루트는 본인 저장 일정을 선택하여 게시 시점의 일정을 복사용 텍스트로 저장한다. 동행 모집은 공연·날짜·모집 정원을 입력한다.
-- 동행 모집은 작성자별 활성 글 하나만 허용한다. MVP의 현재 인원은 작성자 1명으로 표시한다. 신청은 댓글 연락으로만 처리하며 채팅방 자동 생성·채택·참여 5개 제한은 후속 단계에서 구현한다.
+- 동행 모집은 작성자별 활성 글 하나만 허용한다. 게시글을 만들 때 동행 채팅방도 함께
+  생성하고 작성자는 방장으로 참여한다. 최상위 댓글 작성자는 게시글 작성자가 채택해야만
+  채팅방에 참여할 수 있으며, 현재 인원은 활성 채팅방 참여자 수로 표시한다.
+- 채팅방 목록·메시지 이력·읽음 처리는 REST로 제공하고, 새 텍스트 메시지는 인증된 활성
+  참여자에게만 WebSocket(STOMP)으로 전달한다. 메시지 전송·구독은 참여자만 가능하다.
 - 게시글 및 댓글은 좋아요를 지원한다. 답글의 답글은 최상위 댓글에 연결하여 한 단계 깊이로 노출한다. 삭제 시 하위 좋아요와 답글을 함께 제거한다.
 
 ### API 계약
@@ -77,5 +81,19 @@ OAuth만 지원한다.
 | 댓글·답글 | `POST /{postId}/comments` | `content`, 선택 `parentId` |
 | 댓글 삭제 | `DELETE /{postId}/comments/{commentId}` | 작성자만 가능 |
 | 댓글 좋아요·취소 | `PUT`, `DELETE /{postId}/comments/{commentId}/like` | - |
+
+## 동행 채팅 API
+
+모든 경로와 STOMP 연결은 JWT 인증이 필요하다. 동행 게시글 생성 시 채팅방이 자동 생성되며,
+방장은 해당 게시글의 최상위 댓글 작성자를 채택할 수 있다.
+
+| 동작 | 메서드와 경로 | 주요 입력 |
+| --- | --- | --- |
+| 채팅방 목록 | `GET /api/v1/chat/rooms` | - |
+| 메시지 이력 | `GET /api/v1/chat/rooms/{roomId}/messages` | `beforeMessageId`, `size` |
+| 댓글 작성자 채택 | `POST /api/v1/chat/rooms/{roomId}/members` | `commentId` |
+| 읽음 처리 | `PATCH /api/v1/chat/rooms/{roomId}/read` | `lastReadMessageId` |
+| 실시간 전송 | STOMP `/app/chat.rooms/{roomId}/messages` | `content` |
+| 실시간 수신 | STOMP `/user/queue/chat.rooms/{roomId}` | - |
 
 목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.

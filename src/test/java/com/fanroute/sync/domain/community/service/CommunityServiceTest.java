@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.community.dto.CommunityDto;
+import com.fanroute.sync.domain.chat.service.ChatService;
 import com.fanroute.sync.domain.community.entity.Comment;
 import com.fanroute.sync.domain.community.entity.Post;
 import com.fanroute.sync.domain.community.entity.PostType;
@@ -43,6 +44,7 @@ class CommunityServiceTest {
   @Mock ItineraryDayRepository days;
   @Mock ItineraryItemRepository items;
   @Mock ConcertRepository concerts;
+  @Mock ChatService chatService;
 
   @Test
   void detailIncludesCurrentUsersPostAndCommentLikes() {
@@ -127,6 +129,6 @@ class CommunityServiceTest {
 
   private CommunityService service() {
     return new CommunityService(posts, comments, postLikes, commentLikes, trips, days, items,
-        concerts);
+        concerts, chatService);
   }
 }
