@@ -68,6 +68,7 @@ import jakarta.persistence.PersistenceContext;
     AiGenerationStreamProperties.class,
     AiItineraryGenerationAsyncService.class,
     AiItineraryGenerationService.class,
+    AiPlaceCandidateRanker.class,
 })
 class AiGenerationRecoveryIntegrationTest extends AbstractRepositoryTest {
 
