@@ -52,6 +52,8 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       KOPIS_SERVICE_KEY: ${KOPIS_SERVICE_KEY}
       TOUR_API_KEY: ${TOUR_API_KEY}
+      FIREBASE_ENABLED: ${FIREBASE_ENABLED:false}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
       # SecurityConfig.java의 corsConfigurationSource(@Value("${cors.allowed-origins}"))는
       # 기본값이 없는 필수값이라 이게 없으면 컨텍스트 초기화 단계에서 바로 크래시한다.
       # 콤마로 구분된 origin 목록 (Spring이 List<String>으로 변환)
@@ -59,6 +61,8 @@ services:
       # ponytail: t3.micro는 RAM 1GiB. postgres+redis+caddy와 공존하려면 JVM 힙을 제한해야 OOM이 안 난다.
       # 인스턴스 스펙을 올리면 이 값도 같이 올릴 것.
       JAVA_TOOL_OPTIONS: "-Xmx384m"
+    volumes:
+      - /opt/troadie/secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
   caddy:
     image: caddy:2-alpine
