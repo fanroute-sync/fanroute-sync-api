@@ -19,17 +19,17 @@ class AiPlaceCandidateRankerTest {
   private final AiPlaceCandidateRanker ranker = new AiPlaceCandidateRanker();
 
   @Test
-  @DisplayName("당일 숙소 5km 안의 장소를 거리와 여행 스타일 점수로 정렬한다")
-  void ranksNearbyPlacesByDistanceAndStyle() {
+  @DisplayName("숙소에서 먼 장소도 제외하지 않고 거리와 여행 스타일 점수로 정렬한다")
+  void ranksPlacesByDistanceAndStyleWithoutExcludingDistantPlaces() {
     Accommodation accommodation = accommodation(35.1587, 129.1604);
     Place nearbyCafe = place(1L, "가까운 카페", 35.1590, 129.1604, Set.of(PlaceTag.CAFE));
     Place nearbyRestaurant = place(2L, "가까운 식당", 35.1592, 129.1604, Set.of(PlaceTag.FOOD));
-    Place distantRestaurant = place(3L, "먼 식당", 35.2300, 129.1604, Set.of(PlaceTag.FOOD));
+    Place distantRestaurant = place(3L, "먼 식당", 35.4000, 129.1604, Set.of(PlaceTag.FOOD));
 
     List<Place> result = ranker.rank(List.of(distantRestaurant, nearbyRestaurant, nearbyCafe),
         Set.of(), List.of(accommodation), "맛집탐방형", List.of());
 
-    assertThat(result).extracting(Place::getId).containsExactly(2L, 1L);
+    assertThat(result).extracting(Place::getId).containsExactly(2L, 1L, 3L);
   }
 
   @Test

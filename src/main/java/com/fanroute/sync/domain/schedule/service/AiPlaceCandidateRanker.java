@@ -15,7 +15,7 @@ import com.fanroute.sync.domain.schedule.entity.Accommodation;
 @Component
 public class AiPlaceCandidateRanker {
 
-  private static final double MAX_DISTANCE_KM = 5.0;
+  private static final double DISTANCE_SCORE_RANGE_KM = 20.0;
   private static final int MAX_CANDIDATES = 10;
   private static final Map<String, Set<PlaceTag>> MBTI_TAGS = Map.of(
       "맛집탐방형", Set.of(PlaceTag.FOOD),
@@ -42,7 +42,6 @@ public class AiPlaceCandidateRanker {
     return places.stream()
         .filter(place -> !existingPlaceIds.contains(place.getId()))
         .map(place -> scored(place, anchor, mbtiTags, companionTags))
-        .filter(ScoredPlace::eligible)
         .sorted(Comparator.comparingInt(ScoredPlace::score).reversed()
             .thenComparing(scored -> scored.place().getName())
             .thenComparing(scored -> scored.place().getId()))
@@ -56,15 +55,13 @@ public class AiPlaceCandidateRanker {
     int distanceScore = 0;
     if (anchor.isPresent()) {
       double distance = distanceKm(anchor.get(), new Coordinates(place.getLatitude(), place.getLongitude()));
-      if (distance > MAX_DISTANCE_KM) {
-        return new ScoredPlace(place, 0, false);
-      }
-      distanceScore = (int) Math.round((MAX_DISTANCE_KM - distance) / MAX_DISTANCE_KM * 60);
+      distanceScore = (int) Math.round(Math.max(0,
+          (DISTANCE_SCORE_RANGE_KM - distance) / DISTANCE_SCORE_RANGE_KM * 60));
     }
     Set<PlaceTag> tags = place.getTags() == null ? Set.of() : place.getTags();
     int mbtiScore = tags.stream().anyMatch(mbtiTags::contains) ? 25 : 0;
     int companionScore = tags.stream().anyMatch(companionTags::contains) ? 15 : 0;
-    return new ScoredPlace(place, distanceScore + mbtiScore + companionScore, true);
+    return new ScoredPlace(place, distanceScore + mbtiScore + companionScore);
   }
 
   private Set<PlaceTag> companionTags(List<String> companions) {
@@ -93,6 +90,6 @@ public class AiPlaceCandidateRanker {
   private record Coordinates(double latitude, double longitude) {
   }
 
-  private record ScoredPlace(Place place, int score, boolean eligible) {
+  private record ScoredPlace(Place place, int score) {
   }
 }
