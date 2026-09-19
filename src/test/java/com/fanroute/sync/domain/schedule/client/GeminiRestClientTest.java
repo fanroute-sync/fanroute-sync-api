@@ -48,6 +48,7 @@ class GeminiRestClientTest {
         .andExpect(content().string(containsString("\"mimeType\":\"APPLICATION_JSON\"")))
         .andExpect(content().string(containsString("여행 MBTI: 맛집탐방형")))
         .andExpect(content().string(containsString("최대 3개")))
+        .andExpect(content().string(containsString("\"thinkingLevel\":\"MINIMAL\"")))
         .andExpect(content().string(containsString(
             "당일 허용 시간 (Asia/Seoul): 2026-09-01T09:00 ~ 2026-09-02T00:00")))
         .andRespond(withSuccess("""
@@ -168,6 +169,24 @@ class GeminiRestClientTest {
 
     assertThatThrownBy(() -> client.generate(input()))
         .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(finishReason);
+    server.verify();
+  }
+
+  @Test
+  @DisplayName("실험용 LOW 추론 설정을 API 요청에 전달한다")
+  void sendsConfiguredThinkingLevel() {
+    RestClient.Builder builder = RestClient.builder().baseUrl("https://gemini.example.com");
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    server.expect(requestTo(
+            "https://gemini.example.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
+        .andExpect(content().string(containsString("\"thinkingLevel\":\"LOW\"")))
+        .andRespond(withSuccess(response("{\\\"items\\\":[]}"), MediaType.APPLICATION_JSON));
+    GeminiProperties properties = new GeminiProperties();
+    properties.setApiKey("test-key");
+    properties.setThinkingLevel(GeminiProperties.ThinkingLevel.LOW);
+
+    new GeminiRestClient(builder.build(), properties, JsonMapper.builder().build()).generate(input());
+
     server.verify();
   }
 

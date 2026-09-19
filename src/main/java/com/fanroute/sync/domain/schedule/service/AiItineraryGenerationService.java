@@ -188,6 +188,11 @@ public class AiItineraryGenerationService {
     confirmAiGeneration(generation);
     generation.complete();
     notificationOutboxService.enqueue(generation, AiGenerationNotificationType.COMPLETED);
+    if (generation.getCreatedAt() != null) {
+      log.info("AI itinerary result staged: generationId={}, attempt={}, elapsedSinceRequestMs={}",
+          generationId, generation.getAttemptCount(),
+          Math.max(0, Duration.between(generation.getCreatedAt(), Instant.now()).toMillis()));
+    }
   }
 
   public void fail(Long generationId) {

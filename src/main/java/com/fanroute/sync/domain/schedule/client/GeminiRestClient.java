@@ -14,7 +14,9 @@ import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class GeminiRestClient {
 
@@ -52,12 +54,15 @@ public class GeminiRestClient {
   }
 
   private GeminiDto.GenerateContentResponse request(String prompt, Map<String, Object> schema) {
+    log.info("AI itinerary model request: model={}, thinkingLevel={}",
+        properties.getModel(), properties.getThinkingLevel());
     return restClient.post()
         .uri("/v1beta/models/{model}:generateContent", properties.getModel())
         .body(new GeminiDto.GenerateContentRequest(
             List.of(new GeminiDto.Content(List.of(new GeminiDto.Part(prompt)))),
             new GeminiDto.GenerationConfig(new GeminiDto.ResponseFormat(
-                new GeminiDto.StructuredText("APPLICATION_JSON", schema)))))
+                new GeminiDto.StructuredText("APPLICATION_JSON", schema)),
+                new GeminiDto.ThinkingConfig(properties.getThinkingLevel()))))
         .retrieve()
         .body(GeminiDto.GenerateContentResponse.class);
   }

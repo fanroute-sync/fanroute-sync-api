@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fanroute.sync.domain.schedule.config.GeminiProperties;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -22,7 +23,10 @@ public final class GeminiDto {
   public record Part(String text) {
   }
 
-  public record GenerationConfig(ResponseFormat responseFormat) {
+  public record GenerationConfig(ResponseFormat responseFormat, ThinkingConfig thinkingConfig) {
+  }
+
+  public record ThinkingConfig(GeminiProperties.ThinkingLevel thinkingLevel) {
   }
 
   public record ResponseFormat(StructuredText text) {

@@ -53,6 +53,8 @@ class AiItineraryGenerationAsyncServiceTest {
     assertThat(output).contains("generationId=10", "geminiElapsedMs=",
         "placeCandidateCount=0", "promptTokens=100", "cachedTokens=0",
         "candidateTokens=20", "thoughtsTokens=0", "totalTokens=120");
+    assertThat(output).contains("preparationElapsedMs=", "persistenceElapsedMs=",
+        "processingElapsedMs=", "outcome=COMPLETED");
   }
 
   @Test
@@ -69,7 +71,19 @@ class AiItineraryGenerationAsyncServiceTest {
     verify(generationService).handleGeminiFailure(eq(10L), any(IllegalStateException.class));
     verify(generationService, never()).complete(any(), any(), any());
     assertThat(output).contains("generationId=10", "geminiElapsedMs=",
-        "exception=IllegalStateException");
+        "exception=IllegalStateException", "outcome=MODEL_FAILED", "processingElapsedMs=");
+  }
+
+  @Test
+  @DisplayName("입력 준비 실패도 준비 시간을 기록하고 예외를 전파한다")
+  void propagatesPreparationFailureWithTiming(CapturedOutput output) {
+    when(generationService.start(10L)).thenThrow(new IllegalStateException("database unavailable"));
+
+    assertThatThrownBy(() -> service().generate(10L))
+        .isInstanceOf(IllegalStateException.class);
+
+    assertThat(output).contains("outcome=PREPARATION_FAILED", "preparationElapsedMs=",
+        "processingElapsedMs=");
   }
 
   @Test
@@ -101,7 +115,7 @@ class AiItineraryGenerationAsyncServiceTest {
 
   @Test
   @DisplayName("결과 저장 실패는 실패 상태로 덮지 않고 worker까지 전파한다")
-  void propagatesResultPersistenceFailure() {
+  void propagatesResultPersistenceFailure(CapturedOutput output) {
     AiItineraryGenerationDto.GenerationInput input = input();
     GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
     when(generationService.start(10L)).thenReturn(input);
@@ -112,11 +126,13 @@ class AiItineraryGenerationAsyncServiceTest {
     assertThatThrownBy(() -> service().generate(10L))
         .isInstanceOf(IllegalStateException.class);
     verify(generationService, never()).fail(any());
+    assertThat(output).contains("outcome=PERSISTENCE_FAILED", "persistenceElapsedMs=",
+        "processingElapsedMs=");
   }
 
   @Test
   @DisplayName("검증 불가 Gemini 결과는 실패 확정 후 ACK한다")
-  void failsValidationErrorAndAcknowledges() {
+  void failsValidationErrorAndAcknowledges(CapturedOutput output) {
     AiItineraryGenerationDto.GenerationInput input = input();
     GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
     when(generationService.start(10L)).thenReturn(input);
@@ -130,6 +146,7 @@ class AiItineraryGenerationAsyncServiceTest {
         .isEqualTo(AiItineraryGenerationAsyncService.ExecutionResult.ACKNOWLEDGE);
     verify(generationService).fail(10L,
         "Validation failed: " + ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+    assertThat(output).contains("outcome=VALIDATION_FAILED");
   }
 
   private AiItineraryGenerationAsyncService service() {
