@@ -45,6 +45,17 @@ public class AiItineraryGenerationAsyncService {
     }
 
     GeminiDto.UsageMetadata usage = generationResult.usageMetadata();
+    generationResult.stageUsages().forEach(stageUsage -> {
+      GeminiDto.UsageMetadata stageUsageMetadata = stageUsage.usageMetadata();
+      log.info("AI itinerary Gemini stage completed: generationId={}, stage={}, promptTokens={}, "
+              + "cachedTokens={}, candidateTokens={}, thoughtsTokens={}, totalTokens={}",
+          generationId, stageUsage.stage(),
+          stageUsageMetadata == null ? null : stageUsageMetadata.promptTokenCount(),
+          stageUsageMetadata == null ? null : stageUsageMetadata.cachedContentTokenCount(),
+          stageUsageMetadata == null ? null : stageUsageMetadata.candidatesTokenCount(),
+          stageUsageMetadata == null ? null : stageUsageMetadata.thoughtsTokenCount(),
+          stageUsageMetadata == null ? null : stageUsageMetadata.totalTokenCount());
+    });
     log.info("AI itinerary Gemini call completed: generationId={}, geminiElapsedMs={}, "
             + "placeCandidateCount={}, promptTokens={}, cachedTokens={}, candidateTokens={}, "
             + "thoughtsTokens={}, totalTokens={}",
