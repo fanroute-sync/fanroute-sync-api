@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import com.fanroute.sync.domain.user.dto.UserProfileDto;
 import com.fanroute.sync.domain.user.exception.UserErrorCode;
@@ -80,4 +81,14 @@ public interface UserApi {
   ResponseEntity<ApiResponse<UserProfileDto.Response>> updateMyProfile(
       @AuthenticationPrincipal Jwt jwt,
       @RequestBody UserProfileDto.UpdateRequest request);
+
+  @Operation(summary = "푸시 알림 기기 등록")
+  @PutMapping("/me/push-devices")
+  ResponseEntity<ApiResponse<Void>> registerPushDevice(@AuthenticationPrincipal Jwt jwt,
+      @RequestBody @jakarta.validation.Valid com.fanroute.sync.domain.user.dto.PushDeviceDto.RegisterRequest request);
+
+  @Operation(summary = "푸시 알림 기기 해제")
+  @DeleteMapping("/me/push-devices")
+  ResponseEntity<ApiResponse<Void>> unregisterPushDevice(@AuthenticationPrincipal Jwt jwt,
+      @RequestBody @jakarta.validation.Valid com.fanroute.sync.domain.user.dto.PushDeviceDto.RegisterRequest request);
 }
