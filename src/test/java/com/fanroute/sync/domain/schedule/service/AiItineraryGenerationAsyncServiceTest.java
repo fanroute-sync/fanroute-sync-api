@@ -138,7 +138,7 @@ class AiItineraryGenerationAsyncServiceTest {
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        TravelIntensityType.RELAXED, List.of(), List.of(), List.of(), List.of());
+        TravelIntensityType.RELAXED, List.of(), "맛집탐방형", List.of(), List.of(), List.of());
   }
 
   private GeminiDto.GenerationResult generationResult(GeminiDto.GeneratedItinerary itinerary) {

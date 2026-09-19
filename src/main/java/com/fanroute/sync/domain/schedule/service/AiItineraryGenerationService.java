@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.place.entity.Place;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
 import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
@@ -28,6 +29,7 @@ import com.fanroute.sync.domain.schedule.entity.ItineraryItem;
 import com.fanroute.sync.domain.schedule.entity.ItineraryItemType;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
+import com.fanroute.sync.domain.schedule.repository.AccommodationRepository;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
@@ -48,12 +50,14 @@ public class AiItineraryGenerationService {
   private final ItineraryDayRepository itineraryDayRepository;
   private final ItineraryItemRepository itineraryItemRepository;
   private final PlaceRepository placeRepository;
+  private final AccommodationRepository accommodationRepository;
   private final UserRepository userRepository;
   private final AiGenerationOutboxService outboxService;
   private final AiGenerationStreamProperties streamProperties;
   private final AiGenerationRetryPolicy retryPolicy;
   private final AiGenerationDeadLetterRepository deadLetterRepository;
   private final AiGenerationNotificationOutboxService notificationOutboxService;
+  private final AiPlaceCandidateRanker candidateRanker;
 
   public AiItineraryGenerationDto.CreateResponse request(User user, Long itineraryDayId) {
     ItineraryDay itineraryDay = getOwnedItineraryDay(user, itineraryDayId);
@@ -122,9 +126,14 @@ public class AiItineraryGenerationService {
         .filter(place -> place != null)
         .map(Place::getId)
         .collect(java.util.stream.Collectors.toSet());
-    List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = placeRepository
-        .findTop20ByOrderByIdAsc().stream()
-        .filter(place -> !existingPlaceIds.contains(place.getId()))
+    List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = candidateRanker.rank(
+            placeRepository.findByCategoryNotAndLatitudeIsNotNullAndLongitudeIsNotNull(
+                PlaceCategory.ACCOMMODATION),
+            existingPlaceIds,
+            accommodationRepository
+                .findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
+                    day.getTripPlan().getId(), day.getDate(), day.getDate()),
+            day.getTripPlan().getTravelMbti(), day.getTripPlan().getCompanions()).stream()
         .map(place -> new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
             place.getAddress()))
         .toList();
@@ -132,7 +141,8 @@ public class AiItineraryGenerationService {
     return new AiItineraryGenerationDto.GenerationInput(day.getDate(),
         day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt(),
         day.getTripPlan().getTravelIntensity(), day.getTripPlan().getCompanions(),
-        day.getTripPlan().getPreferences(), fixedItems, placeCandidates);
+        day.getTripPlan().getTravelMbti(), day.getTripPlan().getPreferences(), fixedItems,
+        placeCandidates);
   }
 
   @Transactional(readOnly = true)

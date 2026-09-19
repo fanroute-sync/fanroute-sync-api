@@ -18,4 +18,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
 
   boolean existsByTripPlanIdAndCheckinDateLessThanAndCheckoutDateGreaterThan(Long tripPlanId,
       LocalDate checkoutDate, LocalDate checkinDate);
+
+  List<Accommodation> findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
+      Long tripPlanId, LocalDate date, LocalDate sameDate);
 }

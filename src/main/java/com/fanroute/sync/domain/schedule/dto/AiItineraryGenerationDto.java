@@ -45,6 +45,7 @@ public final class AiItineraryGenerationDto {
       Instant departureAt,
       TravelIntensityType travelIntensity,
       List<String> companions,
+      String travelMbti,
       List<String> preferences,
       List<FixedItem> fixedItems,
       List<PlaceCandidate> placeCandidates) {

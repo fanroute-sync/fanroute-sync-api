@@ -43,6 +43,7 @@ import com.fanroute.sync.domain.schedule.entity.TripPlan;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.repository.AiItineraryGenerationRepository;
 import com.fanroute.sync.domain.schedule.repository.AiGenerationDeadLetterRepository;
+import com.fanroute.sync.domain.schedule.repository.AccommodationRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryDayRepository;
 import com.fanroute.sync.domain.schedule.repository.ItineraryItemRepository;
 import com.fanroute.sync.global.common.exception.BusinessException;
@@ -62,6 +63,8 @@ class AiItineraryGenerationServiceTest {
   @Mock
   private PlaceRepository placeRepository;
   @Mock
+  private AccommodationRepository accommodationRepository;
+  @Mock
   private UserRepository userRepository;
   @Mock
   private AiGenerationOutboxService outboxService;
@@ -71,6 +74,8 @@ class AiItineraryGenerationServiceTest {
   private AiGenerationDeadLetterRepository deadLetterRepository;
   @Mock
   private AiGenerationNotificationOutboxService notificationOutboxService;
+  @Mock
+  private AiPlaceCandidateRanker candidateRanker;
 
   @Test
   @DisplayName("내 날짜별 일정에 PENDING AI 생성 작업을 만든다")
@@ -218,7 +223,7 @@ class AiItineraryGenerationServiceTest {
     when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(concertItem));
-    when(placeRepository.findTop20ByOrderByIdAsc()).thenReturn(List.of());
+    when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of());
 
     AiItineraryGenerationDto.GenerationInput input = service().start(10L);
 
@@ -245,7 +250,7 @@ class AiItineraryGenerationServiceTest {
     when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(existingItem));
-    when(placeRepository.findTop20ByOrderByIdAsc()).thenReturn(List.of(existingPlace, candidatePlace));
+    when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of(candidatePlace));
 
     AiItineraryGenerationDto.GenerationInput input = service().start(10L);
 
@@ -447,20 +452,20 @@ class AiItineraryGenerationServiceTest {
   private AiItineraryGenerationService service() {
     AiGenerationStreamProperties streamProperties = new AiGenerationStreamProperties();
     return new AiItineraryGenerationService(generationRepository, itineraryDayRepository,
-        itineraryItemRepository, placeRepository, userRepository, outboxService,
-        streamProperties, retryPolicy, deadLetterRepository, notificationOutboxService);
+        itineraryItemRepository, placeRepository, accommodationRepository, userRepository, outboxService,
+        streamProperties, retryPolicy, deadLetterRepository, notificationOutboxService, candidateRanker);
   }
 
   private AiItineraryGenerationDto.GenerationInput input() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        null, List.of(), List.of(), List.of(), List.of());
+        null, List.of(), null, List.of(), List.of(), List.of());
   }
 
   private AiItineraryGenerationDto.GenerationInput inputWithPlaceCandidate() {
     return new AiItineraryGenerationDto.GenerationInput(LocalDate.of(2026, 9, 1),
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
-        null, List.of(), List.of(), List.of(),
+        null, List.of(), null, List.of(), List.of(),
         List.of(new AiItineraryGenerationDto.PlaceCandidate(2L, "해운대 해수욕장", "부산")));
   }
 
