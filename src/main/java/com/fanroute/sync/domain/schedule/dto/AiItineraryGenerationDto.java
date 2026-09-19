@@ -1,8 +1,10 @@
 package com.fanroute.sync.domain.schedule.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
@@ -51,6 +53,24 @@ public final class AiItineraryGenerationDto {
       List<String> preferences,
       List<FixedItem> fixedItems,
       List<PlaceCandidate> placeCandidates) {
+
+    public TimeWindow timeWindow() {
+      return TimeWindow.forDate(date, arrivalAt, departureAt);
+    }
+  }
+
+  public record TimeWindow(LocalDateTime start, LocalDateTime end) {
+
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
+    public static TimeWindow forDate(LocalDate date, Instant arrivalAt, Instant departureAt) {
+      LocalDateTime arrival = LocalDateTime.ofInstant(arrivalAt, KOREA_ZONE);
+      LocalDateTime departure = LocalDateTime.ofInstant(departureAt, KOREA_ZONE);
+      LocalDateTime dayStart = date.atStartOfDay();
+      LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+      return new TimeWindow(arrival.isAfter(dayStart) ? arrival : dayStart,
+          departure.isBefore(dayEnd) ? departure : dayEnd);
+    }
   }
 
   public record FixedItem(LocalTime scheduledTime, String title, Integer durationMinutes) {

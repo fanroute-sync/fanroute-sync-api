@@ -2,6 +2,7 @@ package com.fanroute.sync.domain.schedule.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -117,7 +118,6 @@ public class AiItineraryGenerationService {
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
     List<AiItineraryGenerationDto.FixedItem> fixedItems = existingItems.stream()
-        .filter(item -> item.getConcert() != null)
         .map(item -> new AiItineraryGenerationDto.FixedItem(item.getScheduledTime(), item.getTitle(),
             item.getDurationMinutes()))
         .toList();
@@ -163,7 +163,7 @@ public class AiItineraryGenerationService {
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
     validatePlaceDuplicates(generatedItems, findTripPlanPlaceIds(day.getTripPlan().getId()));
     Map<Long, Place> places = findCandidatePlaces(generatedItems, input.placeCandidates());
-    validateConcertConflicts(generatedItems, existingItems);
+    validateTimeConstraints(day, generatedItems, existingItems);
 
     int nextSortOrder = existingItems.stream().mapToInt(ItineraryItem::getSortOrder).max()
         .orElse(0) + 1;
@@ -285,6 +285,10 @@ public class AiItineraryGenerationService {
     }
     for (GeminiDto.GeneratedItem item : generatedItinerary.items()) {
       try {
+        if (item == null || item.scheduledTime() == null
+            || !item.scheduledTime().matches("[0-2][0-9]:[0-5][0-9]")) {
+          throw new IllegalArgumentException("Time must use HH:mm");
+        }
         LocalTime.parse(item.scheduledTime());
       } catch (RuntimeException exception) {
         throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
@@ -342,17 +346,34 @@ public class AiItineraryGenerationService {
     }
   }
 
-  private void validateConcertConflicts(List<GeminiDto.GeneratedItem> generatedItems,
-      List<ItineraryItem> existingItems) {
-    List<LocalTime> concertTimes = existingItems.stream()
-        .filter(item -> item.getConcert() != null)
-        .map(ItineraryItem::getScheduledTime)
-        .toList();
-    boolean conflicts = generatedItems.stream()
-        .map(item -> LocalTime.parse(item.scheduledTime()))
-        .anyMatch(concertTimes::contains);
-    if (conflicts) {
-      throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+  private void validateTimeConstraints(ItineraryDay day,
+      List<GeminiDto.GeneratedItem> generatedItems, List<ItineraryItem> existingItems) {
+    AiItineraryGenerationDto.TimeWindow window = AiItineraryGenerationDto.TimeWindow.forDate(
+        day.getDate(), day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt());
+    List<GeminiDto.GeneratedItem> sortedItems = generatedItems.stream()
+        .sorted(Comparator.comparing(GeminiDto.GeneratedItem::scheduledTime)).toList();
+    LocalDateTime previousEnd = window.start();
+    for (GeminiDto.GeneratedItem item : sortedItems) {
+      LocalDateTime start = day.getDate().atTime(LocalTime.parse(item.scheduledTime()));
+      LocalDateTime end = start.plusMinutes(item.durationMinutes());
+      if (start.isBefore(previousEnd) || end.isAfter(window.end())) {
+        throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+      }
+      for (ItineraryItem existing : existingItems) {
+        if (existing.getScheduledTime() == null) {
+          continue;
+        }
+        LocalDateTime existingStart = day.getDate().atTime(existing.getScheduledTime());
+        Integer duration = existing.getDurationMinutes();
+        // 체류시간이 없으면 알려진 시작 시점만 보호하고 종료 시각은 추측하지 않는다.
+        boolean overlaps = duration == null || duration <= 0
+            ? !existingStart.isBefore(start) && existingStart.isBefore(end)
+            : start.isBefore(existingStart.plusMinutes(duration)) && existingStart.isBefore(end);
+        if (overlaps) {
+          throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+        }
+      }
+      previousEnd = end;
     }
   }
 

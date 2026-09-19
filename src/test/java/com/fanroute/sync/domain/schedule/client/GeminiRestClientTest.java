@@ -43,6 +43,8 @@ class GeminiRestClientTest {
         .andExpect(content().string(containsString("\"mimeType\":\"APPLICATION_JSON\"")))
         .andExpect(content().string(containsString("여행 MBTI: 맛집탐방형")))
         .andExpect(content().string(containsString("최대 3개")))
+        .andExpect(content().string(containsString(
+            "당일 허용 시간 (Asia/Seoul): 2026-09-01T09:00 ~ 2026-09-02T00:00")))
         .andRespond(withSuccess("""
             {
               "candidates": [

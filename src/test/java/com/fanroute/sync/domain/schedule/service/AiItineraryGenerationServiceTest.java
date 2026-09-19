@@ -19,6 +19,8 @@ import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -216,13 +218,15 @@ class AiItineraryGenerationServiceTest {
     ReflectionTestUtils.setField(generation, "createdAt", Instant.now().minusSeconds(1));
     ItineraryItem concertItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(19, 0),
         ItineraryItemType.CONCERT, null, org.mockito.Mockito.mock(Concert.class), "공연", 120);
+    ItineraryItem manualItem = ItineraryItem.create(itineraryDay(), 2, LocalTime.of(13, 0),
+        ItineraryItemType.CUSTOM, null, null, "점심", 60);
     when(generationRepository.acquireForProcessing(eq(10L),
         eq(AiItineraryGenerationStatus.PENDING),
         eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
         .thenReturn(1);
     when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
-        .thenReturn(List.of(concertItem));
+        .thenReturn(List.of(concertItem, manualItem));
     when(itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(1L))
         .thenReturn(List.of());
     when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of());
@@ -230,9 +234,8 @@ class AiItineraryGenerationServiceTest {
     AiItineraryGenerationDto.GenerationInput input = service().start(10L);
 
     assertThat(input.date()).isEqualTo(LocalDate.of(2026, 9, 1));
-    assertThat(input.fixedItems()).singleElement()
-        .extracting(AiItineraryGenerationDto.FixedItem::scheduledTime)
-        .isEqualTo(LocalTime.of(19, 0));
+    assertThat(input.fixedItems()).extracting(AiItineraryGenerationDto.FixedItem::scheduledTime)
+        .containsExactly(LocalTime.of(19, 0), LocalTime.of(13, 0));
     assertThat(output).contains("generationId=10", "attempt=1", "queueWaitMs=");
   }
 
@@ -334,6 +337,133 @@ class AiItineraryGenerationServiceTest {
         .extracting(exception -> ((BusinessException) exception).getErrorCode())
         .isEqualTo(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"12:30, 60", "13:00, 30", "13:30, 60", "12:00, 180"})
+  @DisplayName("생성 중 추가된 일반 일정과 겹치는 결과는 저장하지 않는다")
+  void rejectsOverlapWithLatestManualItem(String time, int duration) {
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ItineraryItem manualItem = ItineraryItem.create(itineraryDay(), 1, LocalTime.of(13, 0),
+        ItineraryItemType.CUSTOM, null, null, "점심", 60);
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(manualItem));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem(time, "산책", duration, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+    verify(userRepository, never()).confirmAiGeneration(any());
+  }
+
+  @Test
+  @DisplayName("생성 항목끼리 겹치면 입력 순서와 관계없이 저장하지 않는다")
+  void rejectsOverlappingGeneratedItems() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("14:00", "산책", 60, null),
+            new GeminiDto.GeneratedItem("13:30", "점심", 60, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"08:59, 1", "23:30, 60", "10:00:30, 30"})
+  @DisplayName("한국 시간 도착 전·자정 초과·HH:mm 이외 결과는 저장하지 않는다")
+  void rejectsInvalidDayTimes(String time, int duration) {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem(time, "산책", duration, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("출발일 일정이 한국 시간 출발 시각을 넘으면 저장하지 않는다")
+  void rejectsEndingAfterDeparture() {
+    AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
+    ReflectionTestUtils.setField(generation.getItineraryDay(), "date", LocalDate.of(2026, 9, 3));
+    when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("17:30", "산책", 60, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("기존 일정과 끝점만 맞닿는 일정은 저장한다")
+  void acceptsAdjacentItems() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(ItineraryItem.create(itineraryDay(), 1, LocalTime.of(13, 0),
+            ItineraryItemType.CUSTOM, null, null, "점심", 60)));
+    when(userRepository.confirmAiGeneration(1L)).thenReturn(1);
+
+    service().complete(10L, input(), new GeminiDto.GeneratedItinerary(List.of(
+        new GeminiDto.GeneratedItem("12:00", "산책", 60, null),
+        new GeminiDto.GeneratedItem("14:00", "휴식", 60, null))));
+
+    verify(itineraryItemRepository).saveAll(any());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"09:00, 30", "23:30, 30"})
+  @DisplayName("도착 시각에 시작하거나 자정에 정확히 종료하는 일정은 허용한다")
+  void acceptsDayBoundaries(String time, int duration) {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+    when(userRepository.confirmAiGeneration(1L)).thenReturn(1);
+
+    service().complete(10L, input(), new GeminiDto.GeneratedItinerary(List.of(
+        new GeminiDto.GeneratedItem(time, "휴식", duration, null))));
+
+    verify(itineraryItemRepository).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("체류시간 미정인 기존 일정의 시작 시점을 포함하면 거부한다")
+  void protectsStartOfUnknownDuration() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(ItineraryItem.create(itineraryDay(), 1, LocalTime.of(13, 0),
+            ItineraryItemType.CUSTOM, null, null, "약속", null)));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("12:30", "산책", 60, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("시각 없는 일정과 체류시간 미정 일정의 종료 시각은 추측하지 않는다")
+  void doesNotInventMissingTimes() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(
+            ItineraryItem.create(itineraryDay(), 1, null,
+                ItineraryItemType.CUSTOM, null, null, "시간 미정", 60),
+            ItineraryItem.create(itineraryDay(), 2, LocalTime.of(13, 0),
+                ItineraryItemType.CUSTOM, null, null, "체류시간 미정", null)));
+    when(userRepository.confirmAiGeneration(1L)).thenReturn(1);
+
+    service().complete(10L, input(), new GeminiDto.GeneratedItinerary(List.of(
+        new GeminiDto.GeneratedItem("13:30", "산책", 60, null))));
+
+    verify(itineraryItemRepository).saveAll(any());
   }
 
   @Test
