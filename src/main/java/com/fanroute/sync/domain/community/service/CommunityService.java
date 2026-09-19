@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.community.dto.CommunityDto;
+import com.fanroute.sync.domain.chat.service.ChatService;
 import com.fanroute.sync.domain.community.entity.Comment;
 import com.fanroute.sync.domain.community.entity.CommentLike;
 import com.fanroute.sync.domain.community.entity.Post;
@@ -49,6 +50,7 @@ public class CommunityService {
   private final ItineraryDayRepository days;
   private final ItineraryItemRepository items;
   private final ConcertRepository concerts;
+  private final ChatService chatService;
 
   public Page<CommunityDto.PostResponse> list(User user, PostType type, String query, String region,
       String sort, int page, int size) {
@@ -123,14 +125,21 @@ public class CommunityService {
         .filter(Objects::nonNull).map(String::trim).filter(t -> !t.isBlank()).toList();
     String region = request.region();
     if (region == null && concert != null) region = concert.getVenue().getAddress();
-    return toPost(user, posts.save(Post.create(user, request.type(), request.title().trim(), content,
-        tags, concert, tripId, request.companionDate(), request.capacity(), region)));
+    Post post = posts.save(Post.create(user, request.type(), request.title().trim(), content,
+        tags, concert, tripId, request.companionDate(), request.capacity(), region));
+    if (post.getType() == PostType.COMPANION) {
+      chatService.createCompanionRoom(post);
+    }
+    return toPost(user, post);
   }
 
   @Transactional
   public void deletePost(User user, Long id) {
     Post post = findPost(id);
     requireAuthor(user, post.getAuthor().getId());
+    if (post.getType() == PostType.COMPANION) {
+      chatService.deleteCompanionRoom(id);
+    }
     commentLikes.deleteByCommentPostId(id);
     comments.deleteByPostIdAndParentIsNotNull(id);
     comments.flush();
@@ -220,7 +229,7 @@ public class CommunityService {
         post.getAuthor().getNickname(), concert == null ? null : concert.getId(),
         concert == null ? null : concert.getTitle(), post.getTripPlanId(),
         post.getCompanionDate(), post.getCapacity(),
-        post.getType() == PostType.COMPANION ? 1 : null, post.getRegion(),
+        post.getType() == PostType.COMPANION ? chatService.activeMemberCount(post.getId()) : null, post.getRegion(),
         postLikes.countByPostId(post.getId()),
         postLikes.existsByPostIdAndUserId(post.getId(), user.getId()),
         comments.countByPostId(post.getId()),

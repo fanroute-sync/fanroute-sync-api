@@ -11,3 +11,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_concert_schedules_concert_id_date_time
 -- 작성자별 동행 모집 글은 MVP에서 삭제 전까지 하나만 유지합니다.
 CREATE UNIQUE INDEX IF NOT EXISTS uk_community_posts_active_companion_author
     ON community_posts (author_id) WHERE type = 'COMPANION';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_chat_rooms_companion_post
+    ON chat_rooms (companion_post_id) WHERE companion_post_id IS NOT NULL AND closed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_chat_room_members_active_room
+    ON chat_room_members (chat_room_id, left_at);
+
+CREATE INDEX IF NOT EXISTS idx_chat_room_members_active_user
+    ON chat_room_members (user_id, left_at);
