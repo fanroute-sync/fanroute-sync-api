@@ -223,6 +223,8 @@ class AiItineraryGenerationServiceTest {
     when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
         .thenReturn(List.of(concertItem));
+    when(itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(1L))
+        .thenReturn(List.of());
     when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of());
 
     AiItineraryGenerationDto.GenerationInput input = service().start(10L);
@@ -235,8 +237,8 @@ class AiItineraryGenerationServiceTest {
   }
 
   @Test
-  @DisplayName("기존 일정에 등록된 장소는 AI 장소 후보에서 제외한다")
-  void excludesExistingPlacesFromCandidates() {
+  @DisplayName("같은 여행의 다른 날짜에 등록된 장소도 AI 후보에서 제외한다")
+  void excludesPlacesUsedOnOtherDaysOfTheSameTripPlan() {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
     Place existingPlace = place(1L);
     Place candidatePlace = place(2L);
@@ -249,6 +251,8 @@ class AiItineraryGenerationServiceTest {
         .thenReturn(1);
     when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of());
+    when(itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(1L))
         .thenReturn(List.of(existingItem));
     when(candidateRanker.rank(any(), any(), any(), any(), any())).thenReturn(List.of(candidatePlace));
 
@@ -376,6 +380,8 @@ class AiItineraryGenerationServiceTest {
         ItineraryItemType.PLACE, existingPlace, null, "해운대 해수욕장", 60);
     when(generationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(generation));
     when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of(existingItem));
+    when(itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(1L))
         .thenReturn(List.of(existingItem));
 
     assertThatThrownBy(() -> service().complete(10L, inputWithPlaceCandidate(),
