@@ -6,10 +6,11 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.fanroute.sync.domain.chat.dto.ChatDto;
 import com.fanroute.sync.domain.chat.service.ChatService;
+import com.fanroute.sync.domain.notification.dto.NotificationDto;
+import com.fanroute.sync.domain.notification.service.NotificationService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.service.UserService;
 
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class ChatMessageController {
   private final ChatService chatService;
   private final UserService users;
+  private final NotificationService notifications;
   private final SimpMessagingTemplate messaging;
 
   @MessageMapping("/chat.rooms/{roomId}/messages")
@@ -29,6 +31,12 @@ public class ChatMessageController {
     User user = users.getAccessibleUser(Long.valueOf(principal.getName()));
     ChatDto.MessageResponse message = chatService.send(user, roomId, request.content());
     for (Long memberId : chatService.activeMemberIds(roomId)) {
+      if (!memberId.equals(user.getId())) {
+        NotificationDto.NotificationResponse notification = notifications.notifyChatMessage(
+            users.getAccessibleUser(memberId),
+            user.getNickname(), message.content(), roomId);
+        messaging.convertAndSendToUser(memberId.toString(), "/queue/notifications", notification);
+      }
       messaging.convertAndSendToUser(memberId.toString(), "/queue/chat.rooms/" + roomId, message);
     }
   }

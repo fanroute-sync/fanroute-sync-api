@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.chat.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.chat.entity.ChatRoom;
+import com.fanroute.sync.domain.chat.entity.ChatRoomMember;
+import com.fanroute.sync.domain.chat.entity.ChatMemberRole;
+import com.fanroute.sync.domain.chat.dto.ChatDto;
 import com.fanroute.sync.domain.chat.exception.ChatErrorCode;
 import com.fanroute.sync.domain.chat.repository.ChatMessageRepository;
 import com.fanroute.sync.domain.chat.repository.ChatRoomMemberRepository;
@@ -56,6 +60,24 @@ class ChatServiceTest {
         .isEqualTo(ChatErrorCode.CAPACITY_REACHED);
 
     verify(members, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void markReadReturnsTheUpdatedReadCursor() {
+    User user = user(1L);
+    Post post = Post.create(user, PostType.COMPANION, "동행", null, List.of(), null, null,
+        java.time.LocalDate.now(), 2, null);
+    ChatRoom room = ChatRoom.createCompanion(post, user);
+    ReflectionTestUtils.setField(room, "id", 20L);
+    ChatRoomMember member = ChatRoomMember.create(room, user, ChatMemberRole.OWNER);
+    when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member));
+    when(messages.existsByIdAndChatRoomId(50L, 20L)).thenReturn(true);
+
+    ChatDto.ReadReceiptResponse response = service().markRead(user, 20L, 50L);
+
+    assertThat(response.roomId()).isEqualTo(20L);
+    assertThat(response.userId()).isEqualTo(1L);
+    assertThat(response.lastReadMessageId()).isEqualTo(50L);
   }
 
   private User user(Long id) {

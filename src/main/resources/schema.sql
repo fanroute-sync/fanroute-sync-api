@@ -20,3 +20,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_room_members_active_room
 
 CREATE INDEX IF NOT EXISTS idx_chat_room_members_active_user
     ON chat_room_members (user_id, left_at);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+    ON notifications (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_unread
+    ON notifications (user_id) WHERE read_at IS NULL;

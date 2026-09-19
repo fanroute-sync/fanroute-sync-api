@@ -47,6 +47,10 @@ jobs:
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name AWS-RunShellScript \
             --parameters 'commands=[
+              "curl -fsSL https://raw.githubusercontent.com/fanroute-sync/fanroute-sync-api/develop/deploy/docker-compose.yml -o /opt/troadie/docker-compose.yml",
               "aws ssm get-parameter --name /troadie/env-file --with-decryption --query Parameter.Value --output text --region ap-northeast-2 > /opt/troadie/.env",
+              "install -d -m 700 /opt/troadie/secrets",
+              "aws ssm get-parameter --name /troadie/firebase-service-account --with-decryption --query Parameter.Value --output text --region ap-northeast-2 > /opt/troadie/secrets/firebase-service-account.json",
+              "chmod 600 /opt/troadie/secrets/firebase-service-account.json",
               "cd /opt/troadie && docker compose pull && docker compose up -d"
             ]'

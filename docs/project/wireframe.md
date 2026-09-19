@@ -56,7 +56,21 @@ OAuth만 지원한다.
 - 참고 루트는 저장한 일정을 선택해 공유하고 텍스트 복사로 가져온다.
 - 게시글은 좋아요와 한 단계 답글을 지원한다.
 - 마이페이지는 프로필, 활동 내역, AI 루트 사용 현황을 제공한다.
-- 알림 설정과 회원 탈퇴는 Phase 2 범위다.
+- 알림 설정과 회원 탈퇴는 Phase 2 범위다. 다만 동행 채팅의 새 메시지는 인앱 알림으로
+  저장하며, 사용자가 등록한 FCM 디바이스 토큰에는 푸시 알림을 보낸다.
+
+## 알림 API
+
+모든 경로는 JWT 인증이 필요하다. 알림은 수신자별로 저장되며, 채팅 메시지를 보낸
+사용자에게는 자기 메시지 알림을 만들지 않는다.
+
+| 동작 | 메서드와 경로 | 주요 입력 |
+| --- | --- | --- |
+| 알림 목록·미읽음 수 | `GET /api/v1/notifications` | `size` |
+| 읽음 처리 | `PATCH /api/v1/notifications/{notificationId}/read` | - |
+| FCM 토큰 등록 | `POST /api/v1/notifications/push-tokens` | `token` |
+| FCM 토큰 해제 | `DELETE /api/v1/notifications/push-tokens` | `token` |
+| 실시간 인앱 수신 | STOMP `/user/queue/notifications` | - |
 
 ## Fan Route 커뮤니티 MVP API
 
@@ -97,5 +111,6 @@ OAuth만 지원한다.
 | 읽음 처리 | `PATCH /api/v1/chat/rooms/{roomId}/read` | `lastReadMessageId` |
 | 실시간 전송 | STOMP `/app/chat.rooms/{roomId}/messages` | `content` |
 | 실시간 수신 | STOMP `/user/queue/chat.rooms/{roomId}` | - |
+| 실시간 읽음 상태 수신 | STOMP `/user/queue/chat.rooms/{roomId}/reads` | `userId`, `lastReadMessageId` |
 
-목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 MVP 동안 1이다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.
+목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 활성 채팅방 참여자 수다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.

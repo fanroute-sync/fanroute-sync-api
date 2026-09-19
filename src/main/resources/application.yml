@@ -114,6 +114,10 @@ springdoc:
   swagger-ui:
     with-credentials: true
 
+firebase:
+  # 서비스 계정은 GOOGLE_APPLICATION_CREDENTIALS 환경 변수의 파일 경로로만 주입합니다.
+  enabled: ${FIREBASE_ENABLED:false}
+
 ai-generation:
   notification:
     enabled: ${AI_GENERATION_NOTIFICATION_ENABLED:false}
