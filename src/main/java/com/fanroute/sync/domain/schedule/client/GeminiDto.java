@@ -48,9 +48,20 @@ public final class GeminiDto {
   public record GeneratedItinerary(List<GeneratedItem> items) {
   }
 
+  public record SelectedPlaceIds(List<Long> placeIds) {
+  }
+
+  public record StageUsage(String stage, UsageMetadata usageMetadata) {
+  }
+
   public record GenerationResult(
       GeneratedItinerary itinerary,
-      UsageMetadata usageMetadata) {
+      UsageMetadata usageMetadata,
+      List<StageUsage> stageUsages) {
+
+    public GenerationResult(GeneratedItinerary itinerary, UsageMetadata usageMetadata) {
+      this(itinerary, usageMetadata, List.of(new StageUsage("itinerary", usageMetadata)));
+    }
   }
 
   public record GeneratedItem(

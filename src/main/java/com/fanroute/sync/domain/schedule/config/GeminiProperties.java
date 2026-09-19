@@ -6,6 +6,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.annotation.PostConstruct;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -23,4 +25,12 @@ public class GeminiProperties {
   private int corePoolSize = 2;
   private int maxPoolSize = 4;
   private int queueCapacity = 20;
+  private int promptChainCandidateThreshold = 12;
+
+  @PostConstruct
+  void validate() {
+    if (promptChainCandidateThreshold < 1) {
+      throw new IllegalStateException("Gemini prompt chain candidate threshold must be at least 1");
+    }
+  }
 }
