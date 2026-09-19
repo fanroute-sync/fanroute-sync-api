@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.fanroute.sync.domain.schedule.dto.TripPlanDto;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.global.common.response.ApiResponse;
+import com.fanroute.sync.global.common.response.ErrorCode;
 import com.fanroute.sync.global.common.swagger.ApiErrorCodeExamples;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,7 @@ public interface TravelStyleApi {
   @Operation(summary = "여행 스타일 저장", description = "여행 강도, 복수 동행, 여행 MBTI를 저장합니다.")
   @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "200", description = "여행 스타일 저장 성공", useReturnTypeSchema = true))
+  @ApiErrorCodeExamples(type = ErrorCode.class, names = "INVALID_PARAMETER")
   @ApiErrorCodeExamples(type = ScheduleErrorCode.class, names = "TRIP_PLAN_NOT_FOUND")
   ResponseEntity<ApiResponse<TripPlanDto.TravelStyleResponse>> update(
       @AuthenticationPrincipal Jwt jwt, @PathVariable Long tripPlanId,
