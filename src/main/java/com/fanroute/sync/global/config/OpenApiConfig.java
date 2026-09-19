@@ -2,8 +2,10 @@ package com.fanroute.sync.global.config;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springdoc.core.customizers.OperationCustomizer;
@@ -55,9 +57,9 @@ public class OpenApiConfig {
   }
 
   private void addErrorCodeExamples(Operation operation, HandlerMethod handlerMethod) {
-    Method method = handlerMethod.getMethod();
-    ApiErrorCodeExamples[] annotations =
-        method.getAnnotationsByType(ApiErrorCodeExamples.class);
+    ApiErrorCodeExamples[] annotations = apiMethods(handlerMethod).stream()
+        .flatMap(method -> Arrays.stream(method.getAnnotationsByType(ApiErrorCodeExamples.class)))
+        .toArray(ApiErrorCodeExamples[]::new);
     boolean requiresBearerAuth = requiresBearerAuth(handlerMethod);
 
     if (annotations.length == 0 && !requiresBearerAuth) {
@@ -91,7 +93,28 @@ public class OpenApiConfig {
 
   private boolean requiresBearerAuth(HandlerMethod handlerMethod) {
     return hasBearerAuthRequirement(handlerMethod.getMethod())
-        || hasBearerAuthRequirement(handlerMethod.getBeanType());
+        || hasBearerAuthRequirement(handlerMethod.getBeanType())
+        || apiMethods(handlerMethod).stream()
+            .anyMatch(method -> hasBearerAuthRequirement(method.getDeclaringClass()));
+  }
+
+  private List<Method> apiMethods(HandlerMethod handlerMethod) {
+    List<Method> methods = new ArrayList<>();
+    Method handler = handlerMethod.getMethod();
+    methods.add(handler);
+    addInterfaceMethods(handlerMethod.getBeanType(), handler, methods);
+    return methods;
+  }
+
+  private void addInterfaceMethods(Class<?> type, Method handler, List<Method> methods) {
+    for (Class<?> api : type.getInterfaces()) {
+      try {
+        methods.add(api.getMethod(handler.getName(), handler.getParameterTypes()));
+      } catch (NoSuchMethodException exception) {
+        // 해당 인터페이스가 현재 핸들러 메서드를 선언하지 않은 경우 무시합니다.
+      }
+      addInterfaceMethods(api, handler, methods);
+    }
   }
 
   private boolean hasBearerAuthRequirement(AnnotatedElement element) {
