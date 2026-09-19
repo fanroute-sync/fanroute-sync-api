@@ -14,6 +14,10 @@ import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.VenuePlaceCollectionItem;
+import com.fanroute.sync.domain.concert.repository.VenuePlaceCollectionItemRepository;
+import com.fanroute.sync.domain.concert.repository.VenuePlaceCollectionRepository;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
@@ -48,6 +52,8 @@ public class AiItineraryGenerationService {
   private final ItineraryDayRepository itineraryDayRepository;
   private final ItineraryItemRepository itineraryItemRepository;
   private final PlaceRepository placeRepository;
+  private final VenuePlaceCollectionRepository placeCollectionRepository;
+  private final VenuePlaceCollectionItemRepository placeCollectionItemRepository;
   private final UserRepository userRepository;
   private final AiGenerationOutboxService outboxService;
   private final AiGenerationStreamProperties streamProperties;
@@ -122,12 +128,12 @@ public class AiItineraryGenerationService {
         .filter(place -> place != null)
         .map(Place::getId)
         .collect(java.util.stream.Collectors.toSet());
-    List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = placeRepository
-        .findTop20ByOrderByIdAsc().stream()
-        .filter(place -> !existingPlaceIds.contains(place.getId()))
-        .map(place -> new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
-            place.getAddress()))
-        .toList();
+    List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = findPlaceCandidates(day,
+        existingPlaceIds);
+    if (day.getTripPlan().getConcert() != null && placeCandidates.isEmpty()) {
+      fail(generationId, "No venue place candidates");
+      return null;
+    }
 
     return new AiItineraryGenerationDto.GenerationInput(day.getDate(),
         day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt(),
@@ -222,6 +228,39 @@ public class AiItineraryGenerationService {
     return itineraryDayRepository.findById(itineraryDayId)
         .filter(day -> day.getTripPlan().getUser().getId().equals(user.getId()))
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.ITINERARY_DAY_NOT_FOUND));
+  }
+
+  private List<AiItineraryGenerationDto.PlaceCandidate> findPlaceCandidates(ItineraryDay day,
+      Set<Long> existingPlaceIds) {
+    Concert concert = day.getTripPlan().getConcert();
+    if (concert == null) {
+      return placeRepository.findTop20ByOrderByIdAsc().stream()
+          .filter(place -> !existingPlaceIds.contains(place.getId()))
+          .map(this::toPlaceCandidate)
+          .toList();
+    }
+
+    Map<Long, AiItineraryGenerationDto.PlaceCandidate> candidates = new java.util.LinkedHashMap<>();
+    placeCollectionRepository.findByVenueIdOrderByNameAsc(concert.getVenue().getId())
+        .forEach(collection -> placeCollectionItemRepository
+            .findByCollectionIdOrderBySortOrderAsc(collection.getId())
+            .forEach(item -> addCandidate(candidates, item, existingPlaceIds)));
+    return candidates.values().stream().limit(8).toList();
+  }
+
+  private void addCandidate(Map<Long, AiItineraryGenerationDto.PlaceCandidate> candidates,
+      VenuePlaceCollectionItem item, Set<Long> existingPlaceIds) {
+    Place place = item.getPlace();
+    if (!existingPlaceIds.contains(place.getId())) {
+      candidates.putIfAbsent(place.getId(), toPlaceCandidate(place));
+    }
+  }
+
+  private AiItineraryGenerationDto.PlaceCandidate toPlaceCandidate(Place place) {
+    List<String> tags = place.getTags() == null ? List.of()
+        : place.getTags().stream().map(Enum::name).sorted().toList();
+    return new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
+        place.getAddress(), place.getCategory() == null ? null : place.getCategory().name(), tags);
   }
 
   private AiItineraryGeneration getOwnedGeneration(User user, Long generationId) {

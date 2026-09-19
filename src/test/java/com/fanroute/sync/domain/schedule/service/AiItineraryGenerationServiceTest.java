@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,11 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.Venue;
+import com.fanroute.sync.domain.concert.entity.VenuePlaceCollection;
+import com.fanroute.sync.domain.concert.entity.VenuePlaceCollectionItem;
+import com.fanroute.sync.domain.concert.repository.VenuePlaceCollectionItemRepository;
+import com.fanroute.sync.domain.concert.repository.VenuePlaceCollectionRepository;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
@@ -61,6 +67,10 @@ class AiItineraryGenerationServiceTest {
   private ItineraryItemRepository itineraryItemRepository;
   @Mock
   private PlaceRepository placeRepository;
+  @Mock
+  private VenuePlaceCollectionRepository placeCollectionRepository;
+  @Mock
+  private VenuePlaceCollectionItemRepository placeCollectionItemRepository;
   @Mock
   private UserRepository userRepository;
   @Mock
@@ -251,6 +261,43 @@ class AiItineraryGenerationServiceTest {
 
     assertThat(input.placeCandidates()).extracting(AiItineraryGenerationDto.PlaceCandidate::id)
         .containsExactly(2L);
+  }
+
+  @Test
+  @DisplayName("공연 여행은 해당 공연장 컬렉션의 장소만 AI 후보로 사용한다")
+  void usesVenuePlaceCollectionCandidates() {
+    Concert concert = org.mockito.Mockito.mock(Concert.class);
+    Venue venue = org.mockito.Mockito.mock(Venue.class);
+    VenuePlaceCollection collection = org.mockito.Mockito.mock(VenuePlaceCollection.class);
+    VenuePlaceCollectionItem collectionItem = org.mockito.Mockito.mock(
+        VenuePlaceCollectionItem.class);
+    Place place = place(3L);
+    when(concert.getVenue()).thenReturn(venue);
+    when(venue.getId()).thenReturn(7L);
+    when(collection.getId()).thenReturn(11L);
+    when(collectionItem.getPlace()).thenReturn(place);
+    when(place.getName()).thenReturn("흰여울문화마을");
+    when(place.getAddress()).thenReturn("부산 영도구");
+    when(place.getTags()).thenReturn(Set.of());
+
+    ItineraryDay day = itineraryDay(concert);
+    AiItineraryGeneration generation = AiItineraryGeneration.create(day);
+    ReflectionTestUtils.setField(generation, "id", 10L);
+    ReflectionTestUtils.setField(generation, "status", AiItineraryGenerationStatus.PROCESSING);
+    when(generationRepository.acquireForProcessing(eq(10L),
+        eq(AiItineraryGenerationStatus.PENDING),
+        eq(AiItineraryGenerationStatus.PROCESSING), any(Instant.class), any(Instant.class)))
+        .thenReturn(1);
+    when(generationRepository.findByIdForProcessing(10L)).thenReturn(Optional.of(generation));
+    when(itineraryItemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of());
+    when(placeCollectionRepository.findByVenueIdOrderByNameAsc(7L)).thenReturn(List.of(collection));
+    when(placeCollectionItemRepository.findByCollectionIdOrderBySortOrderAsc(11L))
+        .thenReturn(List.of(collectionItem));
+
+    assertThat(service().start(10L).placeCandidates()).extracting(
+        AiItineraryGenerationDto.PlaceCandidate::id).containsExactly(3L);
+    verify(placeRepository, never()).findTop20ByOrderByIdAsc();
   }
 
   @Test
@@ -447,7 +494,8 @@ class AiItineraryGenerationServiceTest {
   private AiItineraryGenerationService service() {
     AiGenerationStreamProperties streamProperties = new AiGenerationStreamProperties();
     return new AiItineraryGenerationService(generationRepository, itineraryDayRepository,
-        itineraryItemRepository, placeRepository, userRepository, outboxService,
+        itineraryItemRepository, placeRepository, placeCollectionRepository,
+        placeCollectionItemRepository, userRepository, outboxService,
         streamProperties, retryPolicy, deadLetterRepository, notificationOutboxService);
   }
 
@@ -469,7 +517,15 @@ class AiItineraryGenerationServiceTest {
   }
 
   private ItineraryDay itineraryDay(boolean concertDay) {
-    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), null,
+    return itineraryDay(null, concertDay);
+  }
+
+  private ItineraryDay itineraryDay(Concert concert) {
+    return itineraryDay(concert, false);
+  }
+
+  private ItineraryDay itineraryDay(Concert concert, boolean concertDay) {
+    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), concert,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
     ReflectionTestUtils.setField(tripPlan, "id", 1L);

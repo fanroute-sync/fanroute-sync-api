@@ -53,6 +53,11 @@ public final class AiItineraryGenerationDto {
   public record FixedItem(LocalTime scheduledTime, String title, Integer durationMinutes) {
   }
 
-  public record PlaceCandidate(Long id, String name, String address) {
+  public record PlaceCandidate(Long id, String name, String address, String category,
+      List<String> tags) {
+
+    public PlaceCandidate(Long id, String name, String address) {
+      this(id, name, address, null, List.of());
+    }
   }
 }

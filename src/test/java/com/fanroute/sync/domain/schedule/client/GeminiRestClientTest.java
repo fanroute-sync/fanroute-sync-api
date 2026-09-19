@@ -65,6 +65,7 @@ class GeminiRestClientTest {
 
     GeminiProperties properties = new GeminiProperties();
     properties.setApiKey("test-key");
+    properties.setModel("gemini-3.5-flash");
     GeminiRestClient client = new GeminiRestClient(builder.build(), properties,
         JsonMapper.builder().build());
 
@@ -79,26 +80,22 @@ class GeminiRestClientTest {
   }
 
   @Test
-  @DisplayName("후보가 임계치 이상이면 후보 선별 후 일정 생성 요청을 보낸다")
-  void chainsCandidateSelectionAndItineraryGeneration() {
+  @DisplayName("후보 수와 무관하게 Gemini에 일정 생성 요청을 한 번 보낸다")
+  void generatesItineraryInSingleCall() {
     RestClient.Builder builder = RestClient.builder()
         .baseUrl("https://gemini.example.com")
         .defaultHeader("x-goog-api-key", "test-key");
     MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     server.expect(requestTo(
             "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
-        .andExpect(content().string(containsString("placeIds")))
-        .andRespond(withSuccess(response("{\\\"placeIds\\\":[1,2,999]}"), MediaType.APPLICATION_JSON));
-    server.expect(requestTo(
-            "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
         .andExpect(content().string(containsString("id=1")))
         .andExpect(content().string(containsString("id=2")))
-        .andExpect(content().string(org.hamcrest.Matchers.not(containsString("id=3"))))
+        .andExpect(content().string(containsString("id=3")))
         .andRespond(withSuccess(response("{\\\"items\\\":[]}"), MediaType.APPLICATION_JSON));
 
     GeminiProperties properties = new GeminiProperties();
     properties.setApiKey("test-key");
-    properties.setPromptChainCandidateThreshold(2);
+    properties.setModel("gemini-3.5-flash");
     GeminiRestClient client = new GeminiRestClient(builder.build(), properties,
         JsonMapper.builder().build());
 
@@ -106,36 +103,7 @@ class GeminiRestClientTest {
 
     assertThat(result.itinerary().items()).isEmpty();
     assertThat(result.stageUsages()).extracting(GeminiDto.StageUsage::stage)
-        .containsExactly("candidate-selection", "itinerary");
-    assertThat(result.usageMetadata().totalTokenCount()).isEqualTo(320);
-    server.verify();
-  }
-
-  @Test
-  @DisplayName("후보 선별 결과가 비어 있으면 단일 일정 생성으로 한 번 폴백한다")
-  void fallsBackToSingleGenerationWhenSelectionIsEmpty() {
-    RestClient.Builder builder = RestClient.builder()
-        .baseUrl("https://gemini.example.com")
-        .defaultHeader("x-goog-api-key", "test-key");
-    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    server.expect(requestTo(
-            "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
-        .andRespond(withSuccess(response("{\\\"placeIds\\\":[]}"), MediaType.APPLICATION_JSON));
-    server.expect(requestTo(
-            "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
-        .andExpect(content().string(containsString("id=3")))
-        .andRespond(withSuccess(response("{\\\"items\\\":[]}"), MediaType.APPLICATION_JSON));
-
-    GeminiProperties properties = new GeminiProperties();
-    properties.setApiKey("test-key");
-    properties.setPromptChainCandidateThreshold(2);
-    GeminiRestClient client = new GeminiRestClient(builder.build(), properties,
-        JsonMapper.builder().build());
-
-    GeminiDto.GenerationResult result = client.generate(inputWithCandidates());
-
-    assertThat(result.stageUsages()).extracting(GeminiDto.StageUsage::stage)
-        .containsExactly("itinerary-fallback");
+        .containsExactly("itinerary");
     server.verify();
   }
 
