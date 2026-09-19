@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.schedule.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.entity.VenueItineraryTemplate;
+import com.fanroute.sync.domain.concert.entity.VenueItineraryTemplateItem;
+import com.fanroute.sync.domain.concert.service.VenueItineraryTemplateService;
 import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
@@ -32,6 +37,7 @@ public class ItineraryService {
   private final ItineraryDayRepository dayRepository;
   private final ItineraryItemRepository itemRepository;
   private final PlaceService placeService;
+  private final VenueItineraryTemplateService templateService;
 
   @Transactional(readOnly = true)
   public ItineraryDto.DayResponse getDay(User user, Long tripPlanId, LocalDate date) {
@@ -53,6 +59,44 @@ public class ItineraryService {
     ItineraryItem item = itemRepository.save(ItineraryItem.create(day, nextOrder, request.scheduledTime(),
         request.type(), place, null, request.title(), request.durationMinutes()));
     return toItemResponse(item);
+  }
+
+  /** 컬렉션에서 선택한 장소를 사용자가 자기 일정에 넣습니다. */
+  public ItineraryDto.ItemResponse addPlace(
+      User user, Long dayId, ItineraryDto.AddPlaceRequest request) {
+    ItineraryDay day = getOwnedDay(user, dayId);
+    Place place = placeService.getPlace(request.placeId());
+
+    int nextOrder = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId)
+        .stream()
+        .mapToInt(ItineraryItem::getSortOrder)
+        .max()
+        .orElse(0) + 1;
+    ItineraryItem item = itemRepository.save(ItineraryItem.create(day, nextOrder,
+        request.scheduledTime(), ItineraryItemType.PLACE, place, null,
+        place.getName(), null));
+    return toItemResponse(item);
+  }
+
+  public List<ItineraryDto.ItemResponse> addTemplate(
+      User user, Long dayId, ItineraryDto.AddTemplateRequest request) {
+    ItineraryDay day = getOwnedDay(user, dayId);
+    VenueItineraryTemplate template = templateService.getTemplate(request.templateId());
+    Concert concert = day.getTripPlan().getConcert();
+    if (concert == null || !concert.getVenue().getId().equals(template.getVenue().getId())) {
+      throw new BusinessException(ScheduleErrorCode.ITINERARY_TEMPLATE_VENUE_MISMATCH);
+    }
+
+    int nextOrder = itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(dayId)
+        .stream().mapToInt(ItineraryItem::getSortOrder).max().orElse(0) + 1;
+    List<VenueItineraryTemplateItem> templateItems = templateService.getItems(template.getId());
+    List<ItineraryItem> items = new ArrayList<>();
+    for (VenueItineraryTemplateItem templateItem : templateItems) {
+      items.add(ItineraryItem.create(day, nextOrder++, templateItem.getDefaultTime(),
+          ItineraryItemType.PLACE, templateItem.getPlace(), null,
+          templateItem.getPlace().getName(), templateItem.getDefaultDurationMinutes()));
+    }
+    return itemRepository.saveAll(items).stream().map(this::toItemResponse).toList();
   }
 
   public ItineraryDto.ItemResponse updateItem(User user, Long itemId, ItineraryDto.UpdateItemRequest request) {

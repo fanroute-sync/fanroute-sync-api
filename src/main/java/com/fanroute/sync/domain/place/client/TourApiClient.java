@@ -30,4 +30,19 @@ public interface TourApiClient {
       @RequestParam("lDongRegnCd") String legalDongRegionCode,
       @RequestParam("numOfRows") int numOfRows,
       @RequestParam("pageNo") int pageNo);
+
+  /** 좌표 기준 반경 검색. TourAPI가 거리(dist)를 직접 계산해 반환합니다. */
+  @GetExchange("/locationBasedList2")
+  TourApiDto.LocationBasedListResponse searchLocationBasedList(
+      @RequestParam("serviceKey") String serviceKey,
+      @RequestParam("MobileOS") String mobileOs,
+      @RequestParam("MobileApp") String mobileApp,
+      @RequestParam("_type") String responseType,
+      @RequestParam("arrange") String arrange,
+      @RequestParam("contentTypeId") String contentTypeId,
+      @RequestParam("mapX") double longitude,
+      @RequestParam("mapY") double latitude,
+      @RequestParam("radius") int radiusMeters,
+      @RequestParam("numOfRows") int numOfRows,
+      @RequestParam("pageNo") int pageNo);
 }

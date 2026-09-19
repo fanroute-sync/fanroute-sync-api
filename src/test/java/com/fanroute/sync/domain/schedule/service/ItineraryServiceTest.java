@@ -20,6 +20,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.concert.entity.Concert;
+import com.fanroute.sync.domain.concert.service.VenueItineraryTemplateService;
+import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.service.PlaceService;
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
 import com.fanroute.sync.domain.schedule.entity.ItineraryDay;
@@ -41,6 +43,8 @@ class ItineraryServiceTest {
   private ItineraryItemRepository itemRepository;
   @Mock
   private PlaceService placeService;
+  @Mock
+  private VenueItineraryTemplateService templateService;
 
   @Test
   @DisplayName("사용자 입력 일정 항목을 다음 순서로 추가한다")
@@ -116,12 +120,43 @@ class ItineraryServiceTest {
     verify(itemRepository).flush();
   }
 
+  @Test
+  @DisplayName("장소 ID를 사용자가 정한 시각으로 일정에 추가한다")
+  void addsPlace() {
+    ItineraryDay day = itineraryDay();
+    Place place = org.mockito.Mockito.mock(Place.class);
+    when(place.getName()).thenReturn("공연장 인근 식사");
+    when(dayRepository.findById(1L)).thenReturn(Optional.of(day));
+    when(placeService.getPlace(5L)).thenReturn(place);
+    when(itemRepository.findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(1L))
+        .thenReturn(List.of());
+    when(itemRepository.save(any(ItineraryItem.class))).thenAnswer(invocation -> {
+      ItineraryItem item = invocation.getArgument(0);
+      ReflectionTestUtils.setField(item, "id", 20L);
+      return item;
+    });
+
+    ItineraryDto.ItemResponse response = service().addPlace(
+        UserFixture.activeUserWithId(1L), 1L,
+        new ItineraryDto.AddPlaceRequest(5L, LocalTime.of(17, 30)));
+
+    assertThat(response.type()).isEqualTo(ItineraryItemType.PLACE);
+    assertThat(response.title()).isEqualTo("공연장 인근 식사");
+    assertThat(response.scheduledTime()).isEqualTo(LocalTime.of(17, 30));
+    assertThat(response.sortOrder()).isEqualTo(1);
+    assertThat(response.fixed()).isFalse();
+  }
+
   private ItineraryService service() {
-    return new ItineraryService(dayRepository, itemRepository, placeService);
+    return new ItineraryService(dayRepository, itemRepository, placeService, templateService);
   }
 
   private ItineraryDay itineraryDay() {
-    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), null,
+    return itineraryDay(null);
+  }
+
+  private ItineraryDay itineraryDay(Concert concert) {
+    TripPlan tripPlan = TripPlan.create(UserFixture.activeUserWithId(1L), concert,
         Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T09:00:00Z"),
         null, List.of(), List.of());
     ItineraryDay day = ItineraryDay.create(tripPlan, LocalDate.of(2026, 9, 1), false);

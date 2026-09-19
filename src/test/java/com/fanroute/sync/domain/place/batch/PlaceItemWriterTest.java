@@ -73,6 +73,6 @@ class PlaceItemWriterTest {
   private TourApiDto.PlaceSummary summary(String contentId) {
     return new TourApiDto.PlaceSummary(
         contentId, "32", "테스트 장소", "부산", null, null, 129.0, 35.1, null, null, null, null, "26",
-        null, null, null, null, null, null);
+        null, null, null, null, null, null, null);
   }
 }

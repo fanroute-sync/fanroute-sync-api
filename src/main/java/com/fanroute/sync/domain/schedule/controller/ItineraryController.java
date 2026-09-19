@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fanroute.sync.domain.schedule.dto.ItineraryDto;
+import java.util.List;
 import com.fanroute.sync.domain.schedule.exception.ScheduleErrorCode;
 import com.fanroute.sync.domain.schedule.service.ItineraryService;
 import com.fanroute.sync.domain.user.entity.User;
@@ -61,6 +62,37 @@ public class ItineraryController {
   public ResponseEntity<ApiResponse<ItineraryDto.ItemResponse>> addItem(@AuthenticationPrincipal Jwt jwt,
       @PathVariable Long dayId, @Valid @RequestBody ItineraryDto.CreateItemRequest request) {
     return ApiResponse.ok(itineraryService.addItem(currentUserResolver.getCurrentUser(jwt), dayId, request)).toResponseEntity();
+  }
+  @Operation(summary = "장소로 일정 항목 추가",
+      description = "컬렉션에서 선택한 장소를 사용자가 정한 시각으로 일정에 추가합니다. "
+          + "추가된 항목은 일반 항목과 동일하게 이후 수정·삭제할 수 있습니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "항목 추가 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = "ITINERARY_DAY_NOT_FOUND")
+  @PostMapping("/itinerary-days/{dayId}/items/from-place")
+  public ResponseEntity<ApiResponse<ItineraryDto.ItemResponse>> addPlace(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable Long dayId,
+      @Valid @RequestBody ItineraryDto.AddPlaceRequest request) {
+    return ApiResponse.ok(itineraryService.addPlace(
+        currentUserResolver.getCurrentUser(jwt), dayId, request)).toResponseEntity();
+  }
+  @Operation(summary = "일정 템플릿을 일정에 복사",
+      description = "공연장별 장소 템플릿 항목을 일반 일정 항목으로 복사합니다. 복사 후에는 자유롭게 수정할 수 있습니다.")
+  @ApiResponses({
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "200", description = "템플릿 복사 성공", useReturnTypeSchema = true)
+  })
+  @ApiErrorCodeExamples(type = ScheduleErrorCode.class,
+      names = {"ITINERARY_DAY_NOT_FOUND", "ITINERARY_TEMPLATE_VENUE_MISMATCH"})
+  @PostMapping("/itinerary-days/{dayId}/items/from-template")
+  public ResponseEntity<ApiResponse<List<ItineraryDto.ItemResponse>>> addTemplate(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable Long dayId,
+      @Valid @RequestBody ItineraryDto.AddTemplateRequest request) {
+    return ApiResponse.ok(itineraryService.addTemplate(
+        currentUserResolver.getCurrentUser(jwt), dayId, request)).toResponseEntity();
   }
   @Operation(summary = "일정 항목 수정")
   @ApiResponses({

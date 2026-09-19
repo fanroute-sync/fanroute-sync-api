@@ -22,8 +22,8 @@ public final class TripPlanDto {
       @Schema(example = "1", nullable = true) Long concertId) {
   }
 
-  public record CreateResponse(Long tripPlanId, Long concertId, Instant arrivalAt,
-      Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
+  public record CreateResponse(Long tripPlanId, Long concertId,
+      Instant arrivalAt, Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
   }
 
   public record ItineraryDayResponse(Long id, LocalDate date, boolean concertDay) {
@@ -34,6 +34,7 @@ public final class TripPlanDto {
   }
 
   public record DetailResponse(Long tripPlanId, Long concertId, String concertTitle,
-      Instant arrivalAt, Instant departureAt, List<ItineraryDayResponse> itineraryDays) {
+      Instant arrivalAt, Instant departureAt,
+      List<ItineraryDayResponse> itineraryDays) {
   }
 }

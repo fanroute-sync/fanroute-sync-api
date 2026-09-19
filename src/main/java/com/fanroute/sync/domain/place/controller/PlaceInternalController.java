@@ -19,9 +19,8 @@ import com.fanroute.sync.domain.place.entity.Place;
 import com.fanroute.sync.domain.place.entity.PlaceCategory;
 import com.fanroute.sync.domain.place.exception.PlaceErrorCode;
 import com.fanroute.sync.domain.place.service.PlaceAdminService;
-import com.fanroute.sync.domain.place.service.PlaceService;
-import com.fanroute.sync.global.batch.JobRunResult;
 import com.fanroute.sync.global.batch.BatchJobLauncher;
+import com.fanroute.sync.global.batch.JobRunResult;
 import com.fanroute.sync.global.common.exception.BusinessException;
 import com.fanroute.sync.global.common.response.ApiResponse;
 
@@ -31,11 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-public class PlaceAdminController implements PlaceAdminApi {
+public class PlaceInternalController implements PlaceInternalApi {
 
   private final BatchJobLauncher batchJobLauncher;
   private final PlaceAdminService placeAdminService;
-  private final PlaceService placeService;
   private final Job accommodationPlaceSyncJob;
   private final Job attractionPlaceSyncJob;
   private final Job culturalFacilityPlaceSyncJob;
@@ -51,8 +49,8 @@ public class PlaceAdminController implements PlaceAdminApi {
   }
 
   @Override
-  public ResponseEntity<ApiResponse<List<PlaceDto.NearbyCandidateResponse>>> getNearbyCandidates(
-      PlaceCategory category, Long venueId, int radiusMeters) {
+  public ResponseEntity<ApiResponse<List<PlaceDto.NearbyCandidateResponse>>>
+      getNearbyCandidates(Long venueId, PlaceCategory category, int radiusMeters) {
     List<TourApiDto.PlaceSummary> candidates =
         placeAdminService.searchNearbyCandidates(venueId, category, radiusMeters);
     List<PlaceDto.NearbyCandidateResponse> responses = candidates.stream()
@@ -62,10 +60,13 @@ public class PlaceAdminController implements PlaceAdminApi {
   }
 
   @Override
-  public ResponseEntity<ApiResponse<PlaceDto.Response>> updateTags(
-      Long placeId, PlaceDto.UpdateTagsRequest request) {
-    return ApiResponse.ok(PlaceDto.Response.from(placeService.updateTags(placeId, request.tags())))
-        .toResponseEntity();
+  public ResponseEntity<ApiResponse<List<PlaceDto.Response>>> importCandidates(
+      PlaceDto.CandidateImportBatchRequest request) {
+    List<PlaceDto.Response> responses = placeAdminService
+        .importCandidates(request.category(), request.candidates()).stream()
+        .map(PlaceDto.Response::from)
+        .toList();
+    return ApiResponse.ok(responses).toResponseEntity();
   }
 
   private Long existingPlaceId(TourApiDto.PlaceSummary summary) {
@@ -90,7 +91,7 @@ public class PlaceAdminController implements PlaceAdminApi {
         results.add(JobRunResult.from(batchJobLauncher.start(job, triggerParameters())));
       } catch (JobExecutionAlreadyRunningException | JobRestartException
                | JobInstanceAlreadyCompleteException | InvalidJobParametersException exception) {
-        log.warn("TourAPI 장소 수동 동기화 실행 실패: category={}", category, exception);
+        log.warn("TourAPI 장소 내부 동기화 실행 실패: category={}", category, exception);
         results.add(JobRunResult.failed(job.getName(), PlaceErrorCode.SYNC_ALREADY_RUNNING.getCode()));
       }
     }

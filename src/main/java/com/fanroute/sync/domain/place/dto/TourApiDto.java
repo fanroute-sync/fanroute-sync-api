@@ -71,6 +71,25 @@ public final class TourApiDto {
     }
   }
 
+  public record LocationBasedListResponse(@JsonProperty("response") Response response)
+      implements PlaceListResponse {
+
+    @Override
+    public List<PlaceSummary> itemsOrEmpty() {
+      return TourApiDto.itemsOrEmpty(response);
+    }
+
+    @Override
+    public int totalCount() {
+      return TourApiDto.totalCount(response);
+    }
+
+    @Override
+    public String resultCode() {
+      return TourApiDto.resultCode(response);
+    }
+  }
+
   private static List<PlaceSummary> itemsOrEmpty(Response response) {
     if (response == null || response.body() == null || response.body().items() == null
         || response.body().items().item() == null) {
@@ -144,7 +163,9 @@ public final class TourApiDto {
       @JsonProperty("lclsSystm2") String classificationLevel2,
       @JsonProperty("lclsSystm3") String classificationLevel3,
       @JsonProperty("createdtime") String sourceCreatedAt,
-      @JsonProperty("modifiedtime") String sourceModifiedAt) {
+      @JsonProperty("modifiedtime") String sourceModifiedAt,
+      // locationBasedList2에서만 내려오는, 검색 좌표로부터의 거리(m). 다른 목록 API에서는 null입니다.
+      @JsonProperty("dist") Double distanceMeters) {
 
   }
 }

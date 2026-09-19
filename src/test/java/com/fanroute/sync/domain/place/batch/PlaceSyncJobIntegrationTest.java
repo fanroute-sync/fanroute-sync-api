@@ -90,6 +90,6 @@ class PlaceSyncJobIntegrationTest {
   private TourApiDto.PlaceSummary summary() {
     return new TourApiDto.PlaceSummary(
         "126508", "32", "테스트 호텔", "부산 해운대구", null, null, 129.163, 35.163, null, null, null,
-        null, "26", null, null, null, null, null, null);
+        null, "26", null, null, null, null, null, null, null);
   }
 }

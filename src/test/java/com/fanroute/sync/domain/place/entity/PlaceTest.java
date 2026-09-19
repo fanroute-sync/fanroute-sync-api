@@ -3,11 +3,24 @@ package com.fanroute.sync.domain.place.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PlaceTest {
+
+  @Test
+  @DisplayName("장소 태그를 허용된 enum 값으로 교체한다")
+  void updatesTags() {
+    Place place = Place.create(
+        "126508", PlaceCategory.ATTRACTION, "12", "장소", "부산", null, null, 35.1, 129.1,
+        null, null, null, null, null, null, null, null, null, null, null, Instant.now());
+
+    place.updateTags(Set.of(PlaceTag.CAFE, PlaceTag.OCEAN_VIEW));
+
+    assertThat(place.getTags()).containsExactlyInAnyOrder(PlaceTag.CAFE, PlaceTag.OCEAN_VIEW);
+  }
 
   @Test
   @DisplayName("장소를 생성하면 입력한 값이 그대로 저장된다")
