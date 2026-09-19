@@ -17,7 +17,6 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class GeminiRestClient {
 
-  private static final Map<String, Object> ITINERARY_SCHEMA = createItinerarySchema();
   private static final String COMMON_INSTRUCTION = """
       너는 부산 공연 여행 일정을 돕는 전문가다.
       제공된 후보와 고정 일정만 근거로 판단하고, 사실을 추측하지 마라.
@@ -45,7 +44,8 @@ public class GeminiRestClient {
 
   private GeminiDto.GenerationResult generateItinerary(AiItineraryGenerationDto.GenerationInput input,
       String stage) {
-    GeminiDto.GenerateContentResponse response = request(createItineraryPrompt(input), ITINERARY_SCHEMA);
+    GeminiDto.GenerateContentResponse response = request(createItineraryPrompt(input),
+        createItinerarySchema(Math.max(1, Math.min(3, input.placeCandidates().size()))));
     return new GeminiDto.GenerationResult(read(response, GeminiDto.GeneratedItinerary.class),
         response.usageMetadata(), List.of(new GeminiDto.StageUsage(stage, response.usageMetadata())));
   }
@@ -87,7 +87,7 @@ public class GeminiRestClient {
     return "%s\n%s\n고정 일정과 겹치지 않는 일반 일정만 생성해라. 고정 일정은 결과에 포함하지 마라.\n"
         .formatted(COMMON_INSTRUCTION, dynamicContext(input, input.placeCandidates()))
         + "이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.\n"
-        + "장소 후보 중 선택한 장소는 해당 placeId만 넣어라. 후보 외 장소를 만들지 마라.\n"
+        + "장소 후보 중 선택한 장소는 해당 placeId만 넣고, 서로 다른 장소를 사용해라. 후보 외 장소를 만들지 마라.\n"
         + "time은 HH:mm, durationMinutes는 1 이상의 정수로 반환해라.";
   }
 
@@ -116,7 +116,7 @@ public class GeminiRestClient {
         placeCandidates);
   }
 
-  private static Map<String, Object> createItinerarySchema() {
+  private static Map<String, Object> createItinerarySchema(int minItems) {
     Map<String, Object> itemSchema = Map.of(
         "type", "object",
         "properties", Map.of(
@@ -127,7 +127,7 @@ public class GeminiRestClient {
         "required", List.of("time", "title", "durationMinutes", "placeId"));
     return Map.of(
         "type", "object",
-        "properties", Map.of("items", Map.of("type", "array", "minItems", 1,
+        "properties", Map.of("items", Map.of("type", "array", "minItems", minItems,
             "maxItems", 5, "items", itemSchema)),
         "required", List.of("items"));
   }

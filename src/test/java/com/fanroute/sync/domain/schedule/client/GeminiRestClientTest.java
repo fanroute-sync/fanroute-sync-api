@@ -91,6 +91,7 @@ class GeminiRestClientTest {
         .andExpect(content().string(containsString("id=1")))
         .andExpect(content().string(containsString("id=2")))
         .andExpect(content().string(containsString("id=3")))
+        .andExpect(content().string(containsString("\"minItems\":3")))
         .andRespond(withSuccess(response("{\\\"items\\\":[]}"), MediaType.APPLICATION_JSON));
 
     GeminiProperties properties = new GeminiProperties();
