@@ -156,12 +156,12 @@ public class AiItineraryGenerationService {
             ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
   }
 
-  public void complete(Long generationId, AiItineraryGenerationDto.GenerationInput input,
+  public boolean complete(Long generationId, AiItineraryGenerationDto.GenerationInput input,
       GeminiDto.GeneratedItinerary generatedItinerary) {
     AiItineraryGeneration generation = generationRepository.findByIdForUpdate(generationId)
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
     if (generation.getStatus() != AiItineraryGenerationStatus.PROCESSING) {
-      return;
+      return false;
     }
 
     List<GeminiDto.GeneratedItem> generatedItems = validateGeneratedItems(generatedItinerary,
@@ -193,6 +193,7 @@ public class AiItineraryGenerationService {
           generationId, generation.getAttemptCount(),
           Math.max(0, Duration.between(generation.getCreatedAt(), Instant.now()).toMillis()));
     }
+    return true;
   }
 
   public void fail(Long generationId) {

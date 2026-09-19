@@ -43,6 +43,7 @@ class AiItineraryGenerationAsyncServiceTest {
     GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
     when(generationService.start(10L)).thenReturn(input);
     when(geminiRestClient.generate(input)).thenReturn(generationResult(result));
+    when(generationService.complete(10L, input, result)).thenReturn(true);
 
     AiItineraryGenerationAsyncService.ExecutionResult executionResult = service().generate(10L);
 
@@ -55,6 +56,24 @@ class AiItineraryGenerationAsyncServiceTest {
         "candidateTokens=20", "thoughtsTokens=0", "totalTokens=120");
     assertThat(output).contains("preparationElapsedMs=", "persistenceElapsedMs=",
         "processingElapsedMs=", "outcome=COMPLETED");
+  }
+
+  @Test
+  @DisplayName("이미 종료된 작업의 Gemini 결과는 저장하지 않고 stale로 기록한다")
+  void skipsStaleCompletion(CapturedOutput output) {
+    AiItineraryGenerationDto.GenerationInput input = input();
+    GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
+    when(generationService.start(10L)).thenReturn(input);
+    when(geminiRestClient.generate(input)).thenReturn(generationResult(result));
+    when(generationService.complete(10L, input, result)).thenReturn(false);
+
+    AiItineraryGenerationAsyncService.ExecutionResult executionResult = service().generate(10L);
+
+    assertThat(executionResult)
+        .isEqualTo(AiItineraryGenerationAsyncService.ExecutionResult.ACKNOWLEDGE);
+    verify(generationService, never()).fail(any());
+    assertThat(output).contains("outcome=SKIPPED_STALE", "persistenceElapsedMs=",
+        "processingElapsedMs=");
   }
 
   @Test
@@ -120,8 +139,8 @@ class AiItineraryGenerationAsyncServiceTest {
     GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
     when(generationService.start(10L)).thenReturn(input);
     when(geminiRestClient.generate(input)).thenReturn(generationResult(result));
-    org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
-        .when(generationService).complete(10L, input, result);
+    org.mockito.Mockito.when(generationService.complete(10L, input, result))
+        .thenThrow(new IllegalStateException("database unavailable"));
 
     assertThatThrownBy(() -> service().generate(10L))
         .isInstanceOf(IllegalStateException.class);
@@ -137,8 +156,8 @@ class AiItineraryGenerationAsyncServiceTest {
     GeminiDto.GeneratedItinerary result = new GeminiDto.GeneratedItinerary(List.of());
     when(generationService.start(10L)).thenReturn(input);
     when(geminiRestClient.generate(input)).thenReturn(generationResult(result));
-    org.mockito.Mockito.doThrow(new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM))
-        .when(generationService).complete(10L, input, result);
+    org.mockito.Mockito.when(generationService.complete(10L, input, result))
+        .thenThrow(new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM));
 
     AiItineraryGenerationAsyncService.ExecutionResult executionResult = service().generate(10L);
 

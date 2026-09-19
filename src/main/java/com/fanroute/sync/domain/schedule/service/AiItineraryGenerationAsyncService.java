@@ -87,8 +87,8 @@ public class AiItineraryGenerationAsyncService {
       long persistenceStartTime = System.nanoTime();
       outcome = "PERSISTENCE_FAILED";
       try {
-        generationService.complete(generationId, input, generationResult.itinerary());
-        outcome = "COMPLETED";
+        outcome = generationService.complete(generationId, input, generationResult.itinerary())
+            ? "COMPLETED" : "SKIPPED_STALE";
       } catch (BusinessException exception) {
         outcome = "VALIDATION_FAILED";
         log.warn("AI itinerary validation failed: generationId={}, errorCode={}", generationId,

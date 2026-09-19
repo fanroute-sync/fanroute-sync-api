@@ -342,6 +342,20 @@ class AiItineraryGenerationServiceTest {
   }
 
   @Test
+  @DisplayName("이미 종료된 작업은 Gemini 결과를 저장하지 않는다")
+  void skipsCompletionForTerminalGeneration() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.COMPLETED)));
+
+    boolean completed = service().complete(10L, null, null);
+
+    assertThat(completed).isFalse();
+    verify(itineraryItemRepository, never()).saveAll(any());
+    verify(userRepository, never()).confirmAiGeneration(any());
+    verify(notificationOutboxService, never()).enqueue(any(), any());
+  }
+
+  @Test
   @DisplayName("공연 고정 시간과 같은 Gemini 일정은 저장하지 않는다")
   void rejectsGeneratedItemAtConcertTime() {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
