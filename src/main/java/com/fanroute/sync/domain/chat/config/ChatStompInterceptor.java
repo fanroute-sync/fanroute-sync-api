@@ -37,6 +37,10 @@ public class ChatStompInterceptor implements ChannelInterceptor {
     }
     if (StompCommand.SUBSCRIBE.equals(accessor.getCommand()) || StompCommand.SEND.equals(accessor.getCommand())) {
       Principal principal = accessor.getUser();
+      if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+          && "/user/queue/notifications".equals(accessor.getDestination()) && principal != null) {
+        return message;
+      }
       Long roomId = roomId(accessor.getDestination());
       if (principal == null || roomId == null) throw new IllegalArgumentException("Invalid chat destination");
       chatService.requireActiveMember(roomId, Long.valueOf(principal.getName()));

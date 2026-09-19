@@ -9,6 +9,7 @@ import org.springframework.stereotype.Controller;
 
 import com.fanroute.sync.domain.chat.dto.ChatDto;
 import com.fanroute.sync.domain.chat.service.ChatService;
+import com.fanroute.sync.domain.notification.dto.NotificationDto;
 import com.fanroute.sync.domain.notification.service.NotificationService;
 import com.fanroute.sync.domain.user.entity.User;
 import com.fanroute.sync.domain.user.service.UserService;
@@ -31,8 +32,10 @@ public class ChatMessageController {
     ChatDto.MessageResponse message = chatService.send(user, roomId, request.content());
     for (Long memberId : chatService.activeMemberIds(roomId)) {
       if (!memberId.equals(user.getId())) {
-        notifications.notifyChatMessage(users.getAccessibleUser(memberId), user.getNickname(),
-            message.content(), roomId);
+        NotificationDto.NotificationResponse notification = notifications.notifyChatMessage(
+            users.getAccessibleUser(memberId),
+            user.getNickname(), message.content(), roomId);
+        messaging.convertAndSendToUser(memberId.toString(), "/queue/notifications", notification);
       }
       messaging.convertAndSendToUser(memberId.toString(), "/queue/chat.rooms/" + roomId, message);
     }

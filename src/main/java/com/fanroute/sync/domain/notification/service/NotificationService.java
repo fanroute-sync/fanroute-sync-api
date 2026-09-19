@@ -53,9 +53,11 @@ public class NotificationService {
   }
 
   @Transactional
-  public void notifyChatMessage(User recipient, String senderName, String content, Long roomId) {
+  public NotificationDto.NotificationResponse notifyChatMessage(User recipient, String senderName,
+      String content, Long roomId) {
     Notification notification = notifications.save(Notification.chatMessage(recipient, senderName, content, roomId));
     firebasePush.sendChatMessage(recipient.getId(), notification.getTitle(), notification.getContent(), roomId);
+    return toResponse(notification);
   }
 
   private NotificationDto.NotificationResponse toResponse(Notification notification) {

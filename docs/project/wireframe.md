@@ -68,6 +68,7 @@ OAuth만 지원한다.
 | 읽음 처리 | `PATCH /api/v1/notifications/{notificationId}/read` | - |
 | FCM 토큰 등록 | `POST /api/v1/notifications/push-tokens` | `token` |
 | FCM 토큰 해제 | `DELETE /api/v1/notifications/push-tokens` | `token` |
+| 실시간 인앱 수신 | STOMP `/user/queue/notifications` | - |
 
 ## Fan Route 커뮤니티 MVP API
 
