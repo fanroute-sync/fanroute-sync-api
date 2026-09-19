@@ -42,7 +42,7 @@ public final class GeminiDto {
       Integer totalTokenCount) {
   }
 
-  public record Candidate(Content content) {
+  public record Candidate(Content content, String finishReason) {
   }
 
   public record GeneratedItinerary(List<GeneratedItem> items) {

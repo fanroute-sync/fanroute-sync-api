@@ -164,7 +164,8 @@ public class AiItineraryGenerationService {
       return;
     }
 
-    List<GeminiDto.GeneratedItem> generatedItems = validateGeneratedItems(generatedItinerary);
+    List<GeminiDto.GeneratedItem> generatedItems = validateGeneratedItems(generatedItinerary,
+        input.maxItems());
     ItineraryDay day = generation.getItineraryDay();
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
@@ -285,9 +286,9 @@ public class AiItineraryGenerationService {
   }
 
   private List<GeminiDto.GeneratedItem> validateGeneratedItems(
-      GeminiDto.GeneratedItinerary generatedItinerary) {
+      GeminiDto.GeneratedItinerary generatedItinerary, int maxItems) {
     if (generatedItinerary == null || generatedItinerary.items() == null
-        || generatedItinerary.items().isEmpty()) {
+        || generatedItinerary.items().isEmpty() || generatedItinerary.items().size() > maxItems) {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
     for (GeminiDto.GeneratedItem item : generatedItinerary.items()) {

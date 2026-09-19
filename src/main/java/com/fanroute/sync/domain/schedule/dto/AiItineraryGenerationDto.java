@@ -61,6 +61,10 @@ public final class AiItineraryGenerationDto {
     public TimeWindow timeWindow() {
       return TimeWindow.forDate(date, arrivalAt, departureAt);
     }
+
+    public int maxItems() {
+      return travelIntensity == TravelIntensityType.TIGHT ? 5 : 3;
+    }
   }
 
   public record TimeWindow(LocalDateTime start, LocalDateTime end) {

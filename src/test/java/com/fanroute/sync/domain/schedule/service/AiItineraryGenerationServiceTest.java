@@ -488,6 +488,23 @@ class AiItineraryGenerationServiceTest {
   }
 
   @Test
+  @DisplayName("기본 강도의 최대 3개를 넘는 결과는 저장하거나 차감하지 않는다")
+  void rejectsTooManyItems() {
+    when(generationRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(generation(AiItineraryGenerationStatus.PROCESSING)));
+
+    assertThatThrownBy(() -> service().complete(10L, input(),
+        new GeminiDto.GeneratedItinerary(List.of(
+            new GeminiDto.GeneratedItem("10:00", "하나", 30, null),
+            new GeminiDto.GeneratedItem("11:00", "둘", 30, null),
+            new GeminiDto.GeneratedItem("12:00", "셋", 30, null),
+            new GeminiDto.GeneratedItem("13:00", "넷", 30, null)))))
+        .isInstanceOf(BusinessException.class);
+    verify(itineraryItemRepository, never()).saveAll(any());
+    verify(userRepository, never()).confirmAiGeneration(any());
+  }
+
+  @Test
   @DisplayName("Gemini가 전달하지 않은 장소 후보 ID를 반환하면 저장하지 않는다")
   void rejectsPlaceOutsidePromptCandidates() {
     AiItineraryGeneration generation = generation(AiItineraryGenerationStatus.PROCESSING);
