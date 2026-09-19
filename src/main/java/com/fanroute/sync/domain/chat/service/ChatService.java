@@ -90,23 +90,25 @@ public class ChatService {
   public ChatDto.MessageResponse send(User user, Long roomId, String content) {
     ChatRoom room = rooms.findById(roomId)
         .orElseThrow(() -> new BusinessException(ChatErrorCode.ROOM_NOT_FOUND));
-    requireActiveMemberEntity(roomId, user.getId());
+    ChatRoomMember senderMember = requireActiveMemberEntity(roomId, user.getId());
     String normalized = content == null ? "" : content.trim();
     if (normalized.isEmpty() || normalized.length() > 1000) {
       throw new BusinessException(ChatErrorCode.INVALID_MESSAGE);
     }
     ChatMessage message = messages.save(ChatMessage.createText(room, user, normalized));
+    senderMember.markRead(message.getId(), message.getCreatedAt());
     room.updateLastMessage(message.getId(), message.getCreatedAt());
     return toMessage(message);
   }
 
   @Transactional
-  public void markRead(User user, Long roomId, Long messageId) {
+  public ChatDto.ReadReceiptResponse markRead(User user, Long roomId, Long messageId) {
     ChatRoomMember member = requireActiveMemberEntity(roomId, user.getId());
     if (!messages.existsByIdAndChatRoomId(messageId, roomId)) {
       throw new BusinessException(ChatErrorCode.INVALID_MESSAGE);
     }
     member.markRead(messageId, Instant.now());
+    return new ChatDto.ReadReceiptResponse(roomId, user.getId(), member.getLastReadMessageId());
   }
 
   public void requireActiveMember(Long roomId, Long userId) {
@@ -153,6 +155,7 @@ public class ChatService {
   private ChatDto.MessageResponse toMessage(ChatMessage message) {
     return new ChatDto.MessageResponse(message.getId(), message.getChatRoom().getId(),
         message.getSender().getId(), message.getSender().getNickname(), message.getContent(),
-        message.getCreatedAt());
+        message.getCreatedAt(), members.countByChatRoomIdAndLeftAtIsNullAndLastReadMessageIdGreaterThanEqual(
+            message.getChatRoom().getId(), message.getId()));
   }
 }

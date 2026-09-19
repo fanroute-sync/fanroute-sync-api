@@ -16,7 +16,8 @@ public final class ChatDto {
   public record RoomResponse(Long roomId, Long companionPostId, String title, Instant lastMessageAt,
       String lastMessage, long unreadCount) {}
   public record MessageResponse(Long id, Long roomId, Long senderId, String senderNickname,
-      String content, Instant createdAt) {}
+      String content, Instant createdAt, long readCount) {}
+  public record ReadReceiptResponse(Long roomId, Long userId, Long lastReadMessageId) {}
   public record MessagePageResponse(List<MessageResponse> messages, boolean hasNext,
       Long nextBeforeMessageId) {}
 }
