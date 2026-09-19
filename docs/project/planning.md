@@ -86,4 +86,5 @@ PostgreSQL에 저장하고, 단일 EC2 MVP에서는 Spring 내장 WebSocket(STOM
 - FCM 디바이스 토큰은 사용자별로 여러 개를 등록할 수 있다. Firebase 설정이 준비된 환경에서만
   등록 토큰으로 푸시를 발송하며, 설정 누락이나 발송 실패는 메시지 저장·실시간 수신을 실패시키지 않는다.
 - Firebase 서비스 계정 JSON은 저장소에 넣지 않고 `GOOGLE_APPLICATION_CREDENTIALS`가 가리키는
-  배포 환경의 파일로만 제공한다.
+  배포 환경의 파일로만 제공한다. 운영 배포에서는 SSM SecureString
+  `/troadie/firebase-service-account`에서 EC2 `/opt/troadie/secrets/`로 내려받는다.
