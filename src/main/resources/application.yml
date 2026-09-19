@@ -106,7 +106,7 @@ admin:
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
-  model: ${GEMINI_MODEL:gemini-3.5-flash}
+  model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
   base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
   connect-timeout: ${GEMINI_CONNECT_TIMEOUT:3s}
   read-timeout: ${GEMINI_READ_TIMEOUT:30s}

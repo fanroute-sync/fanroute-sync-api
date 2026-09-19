@@ -121,11 +121,7 @@ public class AiItineraryGenerationService {
         .map(item -> new AiItineraryGenerationDto.FixedItem(item.getScheduledTime(), item.getTitle(),
             item.getDurationMinutes()))
         .toList();
-    Set<Long> existingPlaceIds = existingItems.stream()
-        .map(ItineraryItem::getPlace)
-        .filter(place -> place != null)
-        .map(Place::getId)
-        .collect(java.util.stream.Collectors.toSet());
+    Set<Long> existingPlaceIds = findTripPlanPlaceIds(day.getTripPlan().getId());
     List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = candidateRanker.rank(
             placeRepository.findByCategoryNotAndLatitudeIsNotNullAndLongitudeIsNotNull(
                 PlaceCategory.ACCOMMODATION),
@@ -165,7 +161,7 @@ public class AiItineraryGenerationService {
     ItineraryDay day = generation.getItineraryDay();
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
-    validatePlaceDuplicates(generatedItems, existingItems);
+    validatePlaceDuplicates(generatedItems, findTripPlanPlaceIds(day.getTripPlan().getId()));
     Map<Long, Place> places = findCandidatePlaces(generatedItems, input.placeCandidates());
     validateConcertConflicts(generatedItems, existingItems);
 
@@ -325,13 +321,17 @@ public class AiItineraryGenerationService {
     return places;
   }
 
-  private void validatePlaceDuplicates(List<GeminiDto.GeneratedItem> generatedItems,
-      List<ItineraryItem> existingItems) {
-    Set<Long> existingPlaceIds = existingItems.stream()
+  private Set<Long> findTripPlanPlaceIds(Long tripPlanId) {
+    return itineraryItemRepository.findByItineraryDayTripPlanIdAndPlaceIsNotNull(tripPlanId)
+        .stream()
         .map(ItineraryItem::getPlace)
         .filter(place -> place != null)
         .map(Place::getId)
         .collect(java.util.stream.Collectors.toSet());
+  }
+
+  private void validatePlaceDuplicates(List<GeminiDto.GeneratedItem> generatedItems,
+      Set<Long> existingPlaceIds) {
     Set<Long> generatedPlaceIds = new HashSet<>();
     for (GeminiDto.GeneratedItem item : generatedItems) {
       Long placeId = item.placeId();

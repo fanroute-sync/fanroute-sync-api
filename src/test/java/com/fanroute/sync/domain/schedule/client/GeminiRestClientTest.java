@@ -35,7 +35,7 @@ class GeminiRestClientTest {
         .defaultHeader("x-goog-api-key", "test-key");
     MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     server.expect(requestTo(
-            "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
+            "https://gemini.example.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
         .andExpect(method(HttpMethod.POST))
         .andExpect(header("x-goog-api-key", "test-key"))
         .andExpect(content().string(containsString("\"responseFormat\"")))
@@ -88,7 +88,7 @@ class GeminiRestClientTest {
         .defaultHeader("x-goog-api-key", "test-key");
     MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     server.expect(requestTo(
-            "https://gemini.example.com/v1beta/models/gemini-3.5-flash:generateContent"))
+            "https://gemini.example.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
         .andExpect(content().string(containsString("id=1")))
         .andExpect(content().string(containsString("id=2")))
         .andExpect(content().string(containsString("id=3")))

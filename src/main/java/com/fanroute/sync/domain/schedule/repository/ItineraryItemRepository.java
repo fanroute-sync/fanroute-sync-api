@@ -15,5 +15,8 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, Lo
   @EntityGraph(attributePaths = {"place", "concert"})
   List<ItineraryItem> findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(Long itineraryDayId);
 
+  @EntityGraph(attributePaths = "place")
+  List<ItineraryItem> findByItineraryDayTripPlanIdAndPlaceIsNotNull(Long tripPlanId);
+
   Optional<ItineraryItem> findByIdAndItineraryDayTripPlanUserId(Long itemId, Long userId);
 }
