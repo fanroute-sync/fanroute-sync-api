@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ScheduleErrorCode implements BaseCode {
   TRIP_PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_TRIP_PLAN_NOT_FOUND", "여행 계획을 찾을 수 없습니다."),
+  ACCOMMODATION_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_ACCOMMODATION_NOT_FOUND", "숙소를 찾을 수 없습니다."),
   ITINERARY_DAY_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_ITINERARY_DAY_NOT_FOUND", "일정 일자를 찾을 수 없습니다."),
   ITINERARY_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE_ITINERARY_ITEM_NOT_FOUND", "일정 항목을 찾을 수 없습니다."),
   AI_ITINERARY_GENERATION_NOT_FOUND(HttpStatus.NOT_FOUND,
@@ -24,6 +25,7 @@ public enum ScheduleErrorCode implements BaseCode {
   INVALID_ITINERARY_ITEM(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_ITINERARY_ITEM", "일정 항목 입력이 올바르지 않습니다."),
   FIXED_ITINERARY_ITEM(HttpStatus.BAD_REQUEST, "SCHEDULE_FIXED_ITINERARY_ITEM", "공연 일정 항목은 변경하거나 삭제할 수 없습니다."),
   INVALID_TRIP_PERIOD(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_TRIP_PERIOD", "여행 기간이 올바르지 않습니다."),
+  INVALID_ACCOMMODATION(HttpStatus.BAD_REQUEST, "SCHEDULE_INVALID_ACCOMMODATION", "숙소 정보 또는 숙박 기간이 올바르지 않습니다."),
   ITINERARY_TEMPLATE_VENUE_MISMATCH(HttpStatus.BAD_REQUEST,
       "SCHEDULE_ITINERARY_TEMPLATE_VENUE_MISMATCH", "여행 계획의 공연장과 템플릿 공연장이 다릅니다.");
 

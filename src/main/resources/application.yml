@@ -95,6 +95,11 @@ tour-api:
   legal-dong-region-code: ${TOUR_API_LEGAL_DONG_REGION_CODE:26}
   sync-max-items: ${TOUR_API_SYNC_MAX_ITEMS:0}
 
+kakao:
+  local:
+    rest-api-key: ${KAKAO_REST_API_KEY:}
+    base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}
+
 admin:
   # 로그인 시 ADMIN 권한을 부여할 이메일 목록
   bootstrap-emails: ${ADMIN_BOOTSTRAP_EMAILS:}
