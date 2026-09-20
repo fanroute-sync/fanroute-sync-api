@@ -1,0 +1,13 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "baselineCommit": "6186bd1",
+  "seed": 97,
+  "repeats": 1,
+  "scenarios": 1,
+  "plannedRequests": 3,
+  "startedAt": "2026-09-19T17:55:24.386375+00:00",
+  "timeoutSeconds": 30,
+  "concurrency": 1,
+  "delaySeconds": 0.25,
+  "finishedAt": "2026-09-19T17:55:29.283265+00:00"
+}

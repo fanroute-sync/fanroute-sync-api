@@ -1,0 +1,633 @@
+[
+  {
+    "scenario": "morning-arrival",
+    "variant": "baseline",
+    "input": {
+      "date": "2026-10-01",
+      "arrivalAt": "2026-10-01T00:00:00Z",
+      "departureAt": "2026-10-03T09:00:00Z",
+      "travelIntensity": "RELAXED",
+      "companions": [],
+      "travelMbti": "맛집탐방형",
+      "preferences": [],
+      "fixedItems": [],
+      "placeCandidates": [
+        {
+          "id": 101,
+          "name": "테스트 해변공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "OCEAN_VIEW"
+          ],
+          "latitude": 35.16,
+          "longitude": 129.16
+        },
+        {
+          "id": 102,
+          "name": "테스트 바다카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "OCEAN_VIEW",
+            "DATE"
+          ],
+          "latitude": 35.162,
+          "longitude": 129.161
+        },
+        {
+          "id": 103,
+          "name": "테스트 가족식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD",
+            "FAMILY"
+          ],
+          "latitude": 35.164,
+          "longitude": 129.159
+        },
+        {
+          "id": 104,
+          "name": "테스트 사진전시관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.166,
+          "longitude": 129.158
+        },
+        {
+          "id": 105,
+          "name": "테스트 쇼핑몰",
+          "address": "부산 테스트 주소",
+          "category": "SHOPPING",
+          "tags": [
+            "INDOOR",
+            "FAMILY"
+          ],
+          "latitude": 35.17,
+          "longitude": 129.16
+        },
+        {
+          "id": 106,
+          "name": "테스트 숲공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "FAMILY"
+          ],
+          "latitude": 35.19,
+          "longitude": 129.1
+        },
+        {
+          "id": 107,
+          "name": "테스트 로컬식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD"
+          ],
+          "latitude": 35.155,
+          "longitude": 129.12
+        },
+        {
+          "id": 108,
+          "name": "테스트 골목카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.157,
+          "longitude": 129.122
+        },
+        {
+          "id": 109,
+          "name": "테스트 역사관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR"
+          ],
+          "latitude": 35.11,
+          "longitude": 129.04
+        },
+        {
+          "id": 110,
+          "name": "테스트 전망대",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "OCEAN_VIEW",
+            "PHOTO_SPOT",
+            "DATE"
+          ],
+          "latitude": 35.1,
+          "longitude": 129.03
+        }
+      ],
+      "accommodationAnchor": {
+        "latitude": 35.16,
+        "longitude": 129.16
+      }
+    },
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "너는 부산 공연 여행 일정을 돕는 전문가다.\n제공된 후보와 고정 일정만 근거로 판단하고, 사실을 추측하지 마라.\n응답은 제공된 JSON 스키마만 만족해야 한다.\n\n대상 날짜: 2026-10-01\n여행 기간: 2026-10-01T00:00:00Z ~ 2026-10-03T09:00:00Z\n여행 강도: RELAXED\n동행: []\n여행 MBTI: 맛집탐방형\n선호: []\n고정 일정: []\n장소 후보: [id=101, name=테스트 해변공원, address=부산 테스트 주소, id=102, name=테스트 바다카페, address=부산 테스트 주소, id=103, name=테스트 가족식당, address=부산 테스트 주소, id=104, name=테스트 사진전시관, address=부산 테스트 주소, id=105, name=테스트 쇼핑몰, address=부산 테스트 주소, id=106, name=테스트 숲공원, address=부산 테스트 주소, id=107, name=테스트 로컬식당, address=부산 테스트 주소, id=108, name=테스트 골목카페, address=부산 테스트 주소, id=109, name=테스트 역사관, address=부산 테스트 주소, id=110, name=테스트 전망대, address=부산 테스트 주소]\n\n고정 일정과 겹치지 않는 일반 일정만 생성해라. 고정 일정은 결과에 포함하지 마라.\n이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.\n장소 후보 중 선택한 장소는 해당 placeId만 넣고, 후보 외 장소는 placeId를 null로 둬라.\n일반 일정은 여행 강도에 맞춰 최대 3개만 생성해라. time은 HH:mm, durationMinutes는 1 이상의 정수로 반환해라."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "responseFormat": {
+          "text": {
+            "mimeType": "APPLICATION_JSON",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "time": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "durationMinutes": {
+                        "type": "integer"
+                      },
+                      "placeId": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "time",
+                      "title",
+                      "durationMinutes",
+                      "placeId"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "items"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "scenario": "morning-arrival",
+    "variant": "minimal",
+    "input": {
+      "date": "2026-10-01",
+      "arrivalAt": "2026-10-01T00:00:00Z",
+      "departureAt": "2026-10-03T09:00:00Z",
+      "travelIntensity": "RELAXED",
+      "companions": [],
+      "travelMbti": "맛집탐방형",
+      "preferences": [],
+      "fixedItems": [],
+      "placeCandidates": [
+        {
+          "id": 101,
+          "name": "테스트 해변공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "OCEAN_VIEW"
+          ],
+          "latitude": 35.16,
+          "longitude": 129.16
+        },
+        {
+          "id": 102,
+          "name": "테스트 바다카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "OCEAN_VIEW",
+            "DATE"
+          ],
+          "latitude": 35.162,
+          "longitude": 129.161
+        },
+        {
+          "id": 103,
+          "name": "테스트 가족식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD",
+            "FAMILY"
+          ],
+          "latitude": 35.164,
+          "longitude": 129.159
+        },
+        {
+          "id": 104,
+          "name": "테스트 사진전시관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.166,
+          "longitude": 129.158
+        },
+        {
+          "id": 105,
+          "name": "테스트 쇼핑몰",
+          "address": "부산 테스트 주소",
+          "category": "SHOPPING",
+          "tags": [
+            "INDOOR",
+            "FAMILY"
+          ],
+          "latitude": 35.17,
+          "longitude": 129.16
+        },
+        {
+          "id": 106,
+          "name": "테스트 숲공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "FAMILY"
+          ],
+          "latitude": 35.19,
+          "longitude": 129.1
+        },
+        {
+          "id": 107,
+          "name": "테스트 로컬식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD"
+          ],
+          "latitude": 35.155,
+          "longitude": 129.12
+        },
+        {
+          "id": 108,
+          "name": "테스트 골목카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.157,
+          "longitude": 129.122
+        },
+        {
+          "id": 109,
+          "name": "테스트 역사관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR"
+          ],
+          "latitude": 35.11,
+          "longitude": 129.04
+        },
+        {
+          "id": 110,
+          "name": "테스트 전망대",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "OCEAN_VIEW",
+            "PHOTO_SPOT",
+            "DATE"
+          ],
+          "latitude": 35.1,
+          "longitude": 129.03
+        }
+      ],
+      "accommodationAnchor": {
+        "latitude": 35.16,
+        "longitude": 129.16
+      }
+    },
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "너는 부산 공연 여행 일정을 돕는 전문가다.\n제공된 후보와 고정 일정만 근거로 판단하고, 사실을 추측하지 마라.\n응답은 제공된 JSON 스키마만 만족해야 한다.\n\n대상 날짜: 2026-10-01\n당일 허용 시간 (Asia/Seoul): 2026-10-01T09:00 ~ 2026-10-02T00:00\n여행 강도: RELAXED\n동행: []\n여행 MBTI: 맛집탐방형\n선호: []\n숙소 기준점: lat=35.16, lon=129.16\n기존 일정: []\n장소 후보: [id=101, name=테스트 해변공원, address=부산 테스트 주소, category=ATTRACTION, tags=[PARK, OCEAN_VIEW], lat=35.16, lon=129.16, id=102, name=테스트 바다카페, address=부산 테스트 주소, category=RESTAURANT, tags=[CAFE, OCEAN_VIEW, DATE], lat=35.162, lon=129.161, id=103, name=테스트 가족식당, address=부산 테스트 주소, category=RESTAURANT, tags=[FOOD, FAMILY], lat=35.164, lon=129.159, id=104, name=테스트 사진전시관, address=부산 테스트 주소, category=CULTURAL_FACILITY, tags=[INDOOR, PHOTO_SPOT], lat=35.166, lon=129.158, id=105, name=테스트 쇼핑몰, address=부산 테스트 주소, category=SHOPPING, tags=[INDOOR, FAMILY], lat=35.17, lon=129.16, id=106, name=테스트 숲공원, address=부산 테스트 주소, category=ATTRACTION, tags=[PARK, FAMILY], lat=35.19, lon=129.1, id=107, name=테스트 로컬식당, address=부산 테스트 주소, category=RESTAURANT, tags=[FOOD], lat=35.155, lon=129.12, id=108, name=테스트 골목카페, address=부산 테스트 주소, category=RESTAURANT, tags=[CAFE, PHOTO_SPOT], lat=35.157, lon=129.122, id=109, name=테스트 역사관, address=부산 테스트 주소, category=CULTURAL_FACILITY, tags=[INDOOR], lat=35.11, lon=129.04, id=110, name=테스트 전망대, address=부산 테스트 주소, category=ATTRACTION, tags=[OCEAN_VIEW, PHOTO_SPOT, DATE], lat=35.1, lon=129.03]\n\n기존 일정과 겹치지 않는 일반 일정만 생성해라. 기존 일정은 결과에 포함하지 마라.\n모든 시각은 Asia/Seoul(한국 시간)이다. 허용 시간 안에서 시작하고 종료해라. 자정을 넘기지 마라.\n생성 항목끼리도 체류시간이 겹치면 안 된다. 앞 일정 종료와 다음 일정 시작이 같은 것은 허용한다.\n기존 일정의 시각 미정은 시간 제약에서 제외하고, 체류시간 미정은 시작 시점만 피하며 종료 시각을 추측하지 마라.\n장소 카테고리와 태그로 취향을 반영하고 좌표와 숙소 기준점을 참고해 불필요한 왕복을 줄여라.\n좌표는 도로 이동시간이 아니다. 제공되지 않은 영업시간이나 정확한 이동시간을 사실처럼 추측하지 마라.\n이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.\n장소 후보 중 선택한 장소는 해당 placeId만 넣고, 후보 외 장소는 placeId를 null로 둬라.\n일반 일정은 여행 강도에 맞춰 최대 3개만 생성해라. time은 HH:mm, durationMinutes는 1~720의 정수로 반환해라."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "responseFormat": {
+          "text": {
+            "mimeType": "APPLICATION_JSON",
+            "schema": {
+              "required": [
+                "items"
+              ],
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "items": {
+                    "required": [
+                      "time",
+                      "title",
+                      "durationMinutes",
+                      "placeId"
+                    ],
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "placeId": {
+                        "enum": [
+                          101,
+                          102,
+                          103,
+                          104,
+                          105,
+                          106,
+                          107,
+                          108,
+                          109,
+                          110,
+                          null
+                        ],
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "durationMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 720
+                      },
+                      "time": {
+                        "description": "Asia/Seoul 기준 시작 시각, HH:mm",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "type": "array",
+                  "maxItems": 3,
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        },
+        "thinkingConfig": {
+          "thinkingLevel": "MINIMAL"
+        }
+      }
+    }
+  },
+  {
+    "scenario": "morning-arrival",
+    "variant": "low",
+    "input": {
+      "date": "2026-10-01",
+      "arrivalAt": "2026-10-01T00:00:00Z",
+      "departureAt": "2026-10-03T09:00:00Z",
+      "travelIntensity": "RELAXED",
+      "companions": [],
+      "travelMbti": "맛집탐방형",
+      "preferences": [],
+      "fixedItems": [],
+      "placeCandidates": [
+        {
+          "id": 101,
+          "name": "테스트 해변공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "OCEAN_VIEW"
+          ],
+          "latitude": 35.16,
+          "longitude": 129.16
+        },
+        {
+          "id": 102,
+          "name": "테스트 바다카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "OCEAN_VIEW",
+            "DATE"
+          ],
+          "latitude": 35.162,
+          "longitude": 129.161
+        },
+        {
+          "id": 103,
+          "name": "테스트 가족식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD",
+            "FAMILY"
+          ],
+          "latitude": 35.164,
+          "longitude": 129.159
+        },
+        {
+          "id": 104,
+          "name": "테스트 사진전시관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.166,
+          "longitude": 129.158
+        },
+        {
+          "id": 105,
+          "name": "테스트 쇼핑몰",
+          "address": "부산 테스트 주소",
+          "category": "SHOPPING",
+          "tags": [
+            "INDOOR",
+            "FAMILY"
+          ],
+          "latitude": 35.17,
+          "longitude": 129.16
+        },
+        {
+          "id": 106,
+          "name": "테스트 숲공원",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "PARK",
+            "FAMILY"
+          ],
+          "latitude": 35.19,
+          "longitude": 129.1
+        },
+        {
+          "id": 107,
+          "name": "테스트 로컬식당",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "FOOD"
+          ],
+          "latitude": 35.155,
+          "longitude": 129.12
+        },
+        {
+          "id": 108,
+          "name": "테스트 골목카페",
+          "address": "부산 테스트 주소",
+          "category": "RESTAURANT",
+          "tags": [
+            "CAFE",
+            "PHOTO_SPOT"
+          ],
+          "latitude": 35.157,
+          "longitude": 129.122
+        },
+        {
+          "id": 109,
+          "name": "테스트 역사관",
+          "address": "부산 테스트 주소",
+          "category": "CULTURAL_FACILITY",
+          "tags": [
+            "INDOOR"
+          ],
+          "latitude": 35.11,
+          "longitude": 129.04
+        },
+        {
+          "id": 110,
+          "name": "테스트 전망대",
+          "address": "부산 테스트 주소",
+          "category": "ATTRACTION",
+          "tags": [
+            "OCEAN_VIEW",
+            "PHOTO_SPOT",
+            "DATE"
+          ],
+          "latitude": 35.1,
+          "longitude": 129.03
+        }
+      ],
+      "accommodationAnchor": {
+        "latitude": 35.16,
+        "longitude": 129.16
+      }
+    },
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "너는 부산 공연 여행 일정을 돕는 전문가다.\n제공된 후보와 고정 일정만 근거로 판단하고, 사실을 추측하지 마라.\n응답은 제공된 JSON 스키마만 만족해야 한다.\n\n대상 날짜: 2026-10-01\n당일 허용 시간 (Asia/Seoul): 2026-10-01T09:00 ~ 2026-10-02T00:00\n여행 강도: RELAXED\n동행: []\n여행 MBTI: 맛집탐방형\n선호: []\n숙소 기준점: lat=35.16, lon=129.16\n기존 일정: []\n장소 후보: [id=101, name=테스트 해변공원, address=부산 테스트 주소, category=ATTRACTION, tags=[PARK, OCEAN_VIEW], lat=35.16, lon=129.16, id=102, name=테스트 바다카페, address=부산 테스트 주소, category=RESTAURANT, tags=[CAFE, OCEAN_VIEW, DATE], lat=35.162, lon=129.161, id=103, name=테스트 가족식당, address=부산 테스트 주소, category=RESTAURANT, tags=[FOOD, FAMILY], lat=35.164, lon=129.159, id=104, name=테스트 사진전시관, address=부산 테스트 주소, category=CULTURAL_FACILITY, tags=[INDOOR, PHOTO_SPOT], lat=35.166, lon=129.158, id=105, name=테스트 쇼핑몰, address=부산 테스트 주소, category=SHOPPING, tags=[INDOOR, FAMILY], lat=35.17, lon=129.16, id=106, name=테스트 숲공원, address=부산 테스트 주소, category=ATTRACTION, tags=[PARK, FAMILY], lat=35.19, lon=129.1, id=107, name=테스트 로컬식당, address=부산 테스트 주소, category=RESTAURANT, tags=[FOOD], lat=35.155, lon=129.12, id=108, name=테스트 골목카페, address=부산 테스트 주소, category=RESTAURANT, tags=[CAFE, PHOTO_SPOT], lat=35.157, lon=129.122, id=109, name=테스트 역사관, address=부산 테스트 주소, category=CULTURAL_FACILITY, tags=[INDOOR], lat=35.11, lon=129.04, id=110, name=테스트 전망대, address=부산 테스트 주소, category=ATTRACTION, tags=[OCEAN_VIEW, PHOTO_SPOT, DATE], lat=35.1, lon=129.03]\n\n기존 일정과 겹치지 않는 일반 일정만 생성해라. 기존 일정은 결과에 포함하지 마라.\n모든 시각은 Asia/Seoul(한국 시간)이다. 허용 시간 안에서 시작하고 종료해라. 자정을 넘기지 마라.\n생성 항목끼리도 체류시간이 겹치면 안 된다. 앞 일정 종료와 다음 일정 시작이 같은 것은 허용한다.\n기존 일정의 시각 미정은 시간 제약에서 제외하고, 체류시간 미정은 시작 시점만 피하며 종료 시각을 추측하지 마라.\n장소 카테고리와 태그로 취향을 반영하고 좌표와 숙소 기준점을 참고해 불필요한 왕복을 줄여라.\n좌표는 도로 이동시간이 아니다. 제공되지 않은 영업시간이나 정확한 이동시간을 사실처럼 추측하지 마라.\n이미 등록된 장소는 후보에서 제외되어 있으므로, 장소 후보를 중복해서 선택하지 마라.\n장소 후보 중 선택한 장소는 해당 placeId만 넣고, 후보 외 장소는 placeId를 null로 둬라.\n일반 일정은 여행 강도에 맞춰 최대 3개만 생성해라. time은 HH:mm, durationMinutes는 1~720의 정수로 반환해라."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "responseFormat": {
+          "text": {
+            "mimeType": "APPLICATION_JSON",
+            "schema": {
+              "required": [
+                "items"
+              ],
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "items": {
+                    "required": [
+                      "time",
+                      "title",
+                      "durationMinutes",
+                      "placeId"
+                    ],
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "placeId": {
+                        "enum": [
+                          101,
+                          102,
+                          103,
+                          104,
+                          105,
+                          106,
+                          107,
+                          108,
+                          109,
+                          110,
+                          null
+                        ],
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "durationMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 720
+                      },
+                      "time": {
+                        "description": "Asia/Seoul 기준 시작 시각, HH:mm",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "type": "array",
+                  "maxItems": 3,
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        },
+        "thinkingConfig": {
+          "thinkingLevel": "LOW"
+        }
+      }
+    }
+  }
+]

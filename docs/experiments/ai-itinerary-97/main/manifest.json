@@ -1,0 +1,15 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "baselineCommit": "6186bd1",
+  "seed": 97,
+  "repeats": 3,
+  "scenarios": 20,
+  "plannedRequests": 180,
+  "startedAt": "2026-09-19T17:57:41.320575+00:00",
+  "timeoutSeconds": 30,
+  "concurrency": 1,
+  "delaySeconds": 0.25,
+  "stoppedAt": "2026-09-19T17:59:17.792560+00:00",
+  "stopReason": "분당 15회 무료 티어 제한으로 중단. 실패 포함 원본 보존; 5초 간격의 paced-main을 별도 실행.",
+  "completedRequests": 52
+}

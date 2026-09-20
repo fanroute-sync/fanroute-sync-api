@@ -26,54 +26,87 @@ public class AiItineraryGenerationAsyncService {
   private final GeminiRestClient geminiRestClient;
 
   public ExecutionResult generate(Long generationId) {
-    AiItineraryGenerationDto.GenerationInput input = generationService.start(generationId);
-    if (input == null) {
-      return generationService.isTerminal(generationId)
-          ? ExecutionResult.ACKNOWLEDGE : ExecutionResult.LEAVE_PENDING;
-    }
-
-    GeminiDto.GenerationResult generationResult;
-    long geminiStartTime = System.nanoTime();
+    long processingStartTime = System.nanoTime();
+    long preparationElapsedMillis = 0;
+    long geminiElapsedMillis = 0;
+    Long persistenceElapsedMillis = null;
+    String outcome = "PREPARATION_FAILED";
+    AiItineraryGenerationDto.GenerationInput input = null;
     try {
-      generationResult = geminiRestClient.generate(input);
-    } catch (RuntimeException exception) {
-      log.warn(
-          "AI itinerary Gemini call failed: generationId={}, geminiElapsedMs={}, exception={}",
-          generationId, elapsedMillis(geminiStartTime), exception.getClass().getSimpleName());
-      generationService.handleGeminiFailure(generationId, exception);
+      try {
+        input = generationService.start(generationId);
+      } catch (RuntimeException exception) {
+        preparationElapsedMillis = elapsedMillis(processingStartTime);
+        throw exception;
+      }
+      if (input == null) {
+        return generationService.isTerminal(generationId)
+            ? ExecutionResult.ACKNOWLEDGE : ExecutionResult.LEAVE_PENDING;
+      }
+      preparationElapsedMillis = elapsedMillis(processingStartTime);
+      log.info("AI itinerary input prepared: generationId={}, preparationElapsedMs={}",
+          generationId, preparationElapsedMillis);
+
+      GeminiDto.GenerationResult generationResult;
+      long geminiStartTime = System.nanoTime();
+      try {
+        generationResult = geminiRestClient.generate(input);
+      } catch (RuntimeException exception) {
+        geminiElapsedMillis = elapsedMillis(geminiStartTime);
+        outcome = "MODEL_FAILED";
+        log.warn(
+            "AI itinerary Gemini call failed: generationId={}, geminiElapsedMs={}, exception={}",
+            generationId, geminiElapsedMillis, exception.getClass().getSimpleName());
+        generationService.handleGeminiFailure(generationId, exception);
+        return ExecutionResult.ACKNOWLEDGE;
+      }
+      geminiElapsedMillis = elapsedMillis(geminiStartTime);
+
+      GeminiDto.UsageMetadata usage = generationResult.usageMetadata();
+      generationResult.stageUsages().forEach(stageUsage -> {
+        GeminiDto.UsageMetadata stageUsageMetadata = stageUsage.usageMetadata();
+        log.info("AI itinerary Gemini stage completed: generationId={}, stage={}, promptTokens={}, "
+                + "cachedTokens={}, candidateTokens={}, thoughtsTokens={}, totalTokens={}",
+            generationId, stageUsage.stage(),
+            stageUsageMetadata == null ? null : stageUsageMetadata.promptTokenCount(),
+            stageUsageMetadata == null ? null : stageUsageMetadata.cachedContentTokenCount(),
+            stageUsageMetadata == null ? null : stageUsageMetadata.candidatesTokenCount(),
+            stageUsageMetadata == null ? null : stageUsageMetadata.thoughtsTokenCount(),
+            stageUsageMetadata == null ? null : stageUsageMetadata.totalTokenCount());
+      });
+      log.info("AI itinerary Gemini call completed: generationId={}, geminiElapsedMs={}, "
+              + "placeCandidateCount={}, promptTokens={}, cachedTokens={}, candidateTokens={}, "
+              + "thoughtsTokens={}, totalTokens={}",
+          generationId, geminiElapsedMillis, input.placeCandidates().size(),
+          usage == null ? null : usage.promptTokenCount(),
+          usage == null ? null : usage.cachedContentTokenCount(),
+          usage == null ? null : usage.candidatesTokenCount(),
+          usage == null ? null : usage.thoughtsTokenCount(),
+          usage == null ? null : usage.totalTokenCount());
+
+      long persistenceStartTime = System.nanoTime();
+      outcome = "PERSISTENCE_FAILED";
+      try {
+        outcome = generationService.complete(generationId, input, generationResult.itinerary())
+            ? "COMPLETED" : "SKIPPED_STALE";
+      } catch (BusinessException exception) {
+        outcome = "VALIDATION_FAILED";
+        log.warn("AI itinerary validation failed: generationId={}, errorCode={}", generationId,
+            exception.getErrorCode());
+        generationService.fail(generationId, "Validation failed: " + exception.getErrorCode());
+      } finally {
+        persistenceElapsedMillis = elapsedMillis(persistenceStartTime);
+      }
       return ExecutionResult.ACKNOWLEDGE;
+    } finally {
+      if (input != null || "PREPARATION_FAILED".equals(outcome)) {
+        log.info("AI itinerary processing finished: generationId={}, outcome={}, "
+                + "preparationElapsedMs={}, geminiElapsedMs={}, persistenceElapsedMs={}, "
+                + "processingElapsedMs={}",
+            generationId, outcome, preparationElapsedMillis, geminiElapsedMillis,
+            persistenceElapsedMillis, elapsedMillis(processingStartTime));
+      }
     }
-
-    GeminiDto.UsageMetadata usage = generationResult.usageMetadata();
-    generationResult.stageUsages().forEach(stageUsage -> {
-      GeminiDto.UsageMetadata stageUsageMetadata = stageUsage.usageMetadata();
-      log.info("AI itinerary Gemini stage completed: generationId={}, stage={}, promptTokens={}, "
-              + "cachedTokens={}, candidateTokens={}, thoughtsTokens={}, totalTokens={}",
-          generationId, stageUsage.stage(),
-          stageUsageMetadata == null ? null : stageUsageMetadata.promptTokenCount(),
-          stageUsageMetadata == null ? null : stageUsageMetadata.cachedContentTokenCount(),
-          stageUsageMetadata == null ? null : stageUsageMetadata.candidatesTokenCount(),
-          stageUsageMetadata == null ? null : stageUsageMetadata.thoughtsTokenCount(),
-          stageUsageMetadata == null ? null : stageUsageMetadata.totalTokenCount());
-    });
-    log.info("AI itinerary Gemini call completed: generationId={}, geminiElapsedMs={}, "
-            + "placeCandidateCount={}, promptTokens={}, cachedTokens={}, candidateTokens={}, "
-            + "thoughtsTokens={}, totalTokens={}",
-        generationId, elapsedMillis(geminiStartTime), input.placeCandidates().size(),
-        usage == null ? null : usage.promptTokenCount(),
-        usage == null ? null : usage.cachedContentTokenCount(),
-        usage == null ? null : usage.candidatesTokenCount(),
-        usage == null ? null : usage.thoughtsTokenCount(),
-        usage == null ? null : usage.totalTokenCount());
-
-    try {
-      generationService.complete(generationId, input, generationResult.itinerary());
-    } catch (BusinessException exception) {
-      log.warn("AI itinerary validation failed: generationId={}, errorCode={}", generationId,
-          exception.getErrorCode());
-      generationService.fail(generationId, "Validation failed: " + exception.getErrorCode());
-    }
-    return ExecutionResult.ACKNOWLEDGE;
   }
 
   private long elapsedMillis(long startTime) {

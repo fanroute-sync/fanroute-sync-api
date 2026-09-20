@@ -2,6 +2,7 @@ package com.fanroute.sync.domain.schedule.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import com.fanroute.sync.domain.place.repository.PlaceRepository;
 import com.fanroute.sync.domain.schedule.client.GeminiDto;
 import com.fanroute.sync.domain.schedule.config.AiGenerationStreamProperties;
 import com.fanroute.sync.domain.schedule.dto.AiItineraryGenerationDto;
+import com.fanroute.sync.domain.schedule.entity.Accommodation;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationDeadLetter;
 import com.fanroute.sync.domain.schedule.entity.AiGenerationNotificationType;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
@@ -117,28 +119,33 @@ public class AiItineraryGenerationService {
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
     List<AiItineraryGenerationDto.FixedItem> fixedItems = existingItems.stream()
-        .filter(item -> item.getConcert() != null)
         .map(item -> new AiItineraryGenerationDto.FixedItem(item.getScheduledTime(), item.getTitle(),
             item.getDurationMinutes()))
         .toList();
     Set<Long> existingPlaceIds = findTripPlanPlaceIds(day.getTripPlan().getId());
+    List<Accommodation> accommodations = accommodationRepository
+        .findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
+            day.getTripPlan().getId(), day.getDate(), day.getDate());
+    AiItineraryGenerationDto.AccommodationAnchor anchor = accommodations.stream()
+        .filter(accommodation -> accommodation.getLatitude() != null
+            && accommodation.getLongitude() != null)
+        .max(Comparator.comparing(Accommodation::getCheckinDate))
+        .map(accommodation -> new AiItineraryGenerationDto.AccommodationAnchor(
+            accommodation.getLatitude(), accommodation.getLongitude()))
+        .orElse(null);
     List<AiItineraryGenerationDto.PlaceCandidate> placeCandidates = candidateRanker.rank(
             placeRepository.findByCategoryNotAndLatitudeIsNotNullAndLongitudeIsNotNull(
                 PlaceCategory.ACCOMMODATION),
-            existingPlaceIds,
-            accommodationRepository
-                .findByTripPlanIdAndCheckinDateLessThanEqualAndCheckoutDateGreaterThan(
-                    day.getTripPlan().getId(), day.getDate(), day.getDate()),
+            existingPlaceIds, accommodations,
             day.getTripPlan().getTravelMbti(), day.getTripPlan().getCompanions()).stream()
-        .map(place -> new AiItineraryGenerationDto.PlaceCandidate(place.getId(), place.getName(),
-            place.getAddress()))
+        .map(AiItineraryGenerationDto.PlaceCandidate::from)
         .toList();
 
     return new AiItineraryGenerationDto.GenerationInput(day.getDate(),
         day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt(),
         day.getTripPlan().getTravelIntensity(), day.getTripPlan().getCompanions(),
         day.getTripPlan().getTravelMbti(), day.getTripPlan().getPreferences(), fixedItems,
-        placeCandidates);
+        placeCandidates, anchor);
   }
 
   @Transactional(readOnly = true)
@@ -149,21 +156,22 @@ public class AiItineraryGenerationService {
             ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
   }
 
-  public void complete(Long generationId, AiItineraryGenerationDto.GenerationInput input,
+  public boolean complete(Long generationId, AiItineraryGenerationDto.GenerationInput input,
       GeminiDto.GeneratedItinerary generatedItinerary) {
     AiItineraryGeneration generation = generationRepository.findByIdForUpdate(generationId)
         .orElseThrow(() -> new BusinessException(ScheduleErrorCode.AI_ITINERARY_GENERATION_NOT_FOUND));
     if (generation.getStatus() != AiItineraryGenerationStatus.PROCESSING) {
-      return;
+      return false;
     }
 
-    List<GeminiDto.GeneratedItem> generatedItems = validateGeneratedItems(generatedItinerary);
+    List<GeminiDto.GeneratedItem> generatedItems = validateGeneratedItems(generatedItinerary,
+        input.maxItems());
     ItineraryDay day = generation.getItineraryDay();
     List<ItineraryItem> existingItems = itineraryItemRepository
         .findByItineraryDayIdOrderByScheduledTimeAscSortOrderAsc(day.getId());
     validatePlaceDuplicates(generatedItems, findTripPlanPlaceIds(day.getTripPlan().getId()));
     Map<Long, Place> places = findCandidatePlaces(generatedItems, input.placeCandidates());
-    validateConcertConflicts(generatedItems, existingItems);
+    validateTimeConstraints(day, generatedItems, existingItems);
 
     int nextSortOrder = existingItems.stream().mapToInt(ItineraryItem::getSortOrder).max()
         .orElse(0) + 1;
@@ -180,6 +188,12 @@ public class AiItineraryGenerationService {
     confirmAiGeneration(generation);
     generation.complete();
     notificationOutboxService.enqueue(generation, AiGenerationNotificationType.COMPLETED);
+    if (generation.getCreatedAt() != null) {
+      log.info("AI itinerary result staged: generationId={}, attempt={}, elapsedSinceRequestMs={}",
+          generationId, generation.getAttemptCount(),
+          Math.max(0, Duration.between(generation.getCreatedAt(), Instant.now()).toMillis()));
+    }
+    return true;
   }
 
   public void fail(Long generationId) {
@@ -278,13 +292,17 @@ public class AiItineraryGenerationService {
   }
 
   private List<GeminiDto.GeneratedItem> validateGeneratedItems(
-      GeminiDto.GeneratedItinerary generatedItinerary) {
+      GeminiDto.GeneratedItinerary generatedItinerary, int maxItems) {
     if (generatedItinerary == null || generatedItinerary.items() == null
-        || generatedItinerary.items().isEmpty()) {
+        || generatedItinerary.items().isEmpty() || generatedItinerary.items().size() > maxItems) {
       throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
     }
     for (GeminiDto.GeneratedItem item : generatedItinerary.items()) {
       try {
+        if (item == null || item.scheduledTime() == null
+            || !item.scheduledTime().matches("[0-2][0-9]:[0-5][0-9]")) {
+          throw new IllegalArgumentException("Time must use HH:mm");
+        }
         LocalTime.parse(item.scheduledTime());
       } catch (RuntimeException exception) {
         throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
@@ -342,17 +360,34 @@ public class AiItineraryGenerationService {
     }
   }
 
-  private void validateConcertConflicts(List<GeminiDto.GeneratedItem> generatedItems,
-      List<ItineraryItem> existingItems) {
-    List<LocalTime> concertTimes = existingItems.stream()
-        .filter(item -> item.getConcert() != null)
-        .map(ItineraryItem::getScheduledTime)
-        .toList();
-    boolean conflicts = generatedItems.stream()
-        .map(item -> LocalTime.parse(item.scheduledTime()))
-        .anyMatch(concertTimes::contains);
-    if (conflicts) {
-      throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+  private void validateTimeConstraints(ItineraryDay day,
+      List<GeminiDto.GeneratedItem> generatedItems, List<ItineraryItem> existingItems) {
+    AiItineraryGenerationDto.TimeWindow window = AiItineraryGenerationDto.TimeWindow.forDate(
+        day.getDate(), day.getTripPlan().getArrivalAt(), day.getTripPlan().getDepartureAt());
+    List<GeminiDto.GeneratedItem> sortedItems = generatedItems.stream()
+        .sorted(Comparator.comparing(GeminiDto.GeneratedItem::scheduledTime)).toList();
+    LocalDateTime previousEnd = window.start();
+    for (GeminiDto.GeneratedItem item : sortedItems) {
+      LocalDateTime start = day.getDate().atTime(LocalTime.parse(item.scheduledTime()));
+      LocalDateTime end = start.plusMinutes(item.durationMinutes());
+      if (start.isBefore(previousEnd) || end.isAfter(window.end())) {
+        throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+      }
+      for (ItineraryItem existing : existingItems) {
+        if (existing.getScheduledTime() == null) {
+          continue;
+        }
+        LocalDateTime existingStart = day.getDate().atTime(existing.getScheduledTime());
+        Integer duration = existing.getDurationMinutes();
+        // 체류시간이 없으면 알려진 시작 시점만 보호하고 종료 시각은 추측하지 않는다.
+        boolean overlaps = duration == null || duration <= 0
+            ? !existingStart.isBefore(start) && existingStart.isBefore(end)
+            : start.isBefore(existingStart.plusMinutes(duration)) && existingStart.isBefore(end);
+        if (overlaps) {
+          throw new BusinessException(ScheduleErrorCode.INVALID_ITINERARY_ITEM);
+        }
+      }
+      previousEnd = end;
     }
   }
 

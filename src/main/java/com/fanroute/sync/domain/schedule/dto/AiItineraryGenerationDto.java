@@ -1,10 +1,15 @@
 package com.fanroute.sync.domain.schedule.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
+import com.fanroute.sync.domain.place.entity.Place;
+import com.fanroute.sync.domain.place.entity.PlaceCategory;
+import com.fanroute.sync.domain.place.entity.PlaceTag;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGeneration;
 import com.fanroute.sync.domain.schedule.entity.AiItineraryGenerationStatus;
 import com.fanroute.sync.domain.schedule.entity.TravelIntensityType;
@@ -50,12 +55,45 @@ public final class AiItineraryGenerationDto {
       TravelMbtiType travelMbti,
       List<String> preferences,
       List<FixedItem> fixedItems,
-      List<PlaceCandidate> placeCandidates) {
+      List<PlaceCandidate> placeCandidates,
+      AccommodationAnchor accommodationAnchor) {
+
+    public TimeWindow timeWindow() {
+      return TimeWindow.forDate(date, arrivalAt, departureAt);
+    }
+
+    public int maxItems() {
+      return travelIntensity == TravelIntensityType.TIGHT ? 5 : 3;
+    }
+  }
+
+  public record TimeWindow(LocalDateTime start, LocalDateTime end) {
+
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
+    public static TimeWindow forDate(LocalDate date, Instant arrivalAt, Instant departureAt) {
+      LocalDateTime arrival = LocalDateTime.ofInstant(arrivalAt, KOREA_ZONE);
+      LocalDateTime departure = LocalDateTime.ofInstant(departureAt, KOREA_ZONE);
+      LocalDateTime dayStart = date.atStartOfDay();
+      LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+      return new TimeWindow(arrival.isAfter(dayStart) ? arrival : dayStart,
+          departure.isBefore(dayEnd) ? departure : dayEnd);
+    }
   }
 
   public record FixedItem(LocalTime scheduledTime, String title, Integer durationMinutes) {
   }
 
-  public record PlaceCandidate(Long id, String name, String address) {
+  public record PlaceCandidate(Long id, String name, String address, PlaceCategory category,
+      List<PlaceTag> tags, Double latitude, Double longitude) {
+
+    public static PlaceCandidate from(Place place) {
+      return new PlaceCandidate(place.getId(), place.getName(), place.getAddress(),
+          place.getCategory(), place.getTags().stream().sorted().toList(),
+          place.getLatitude(), place.getLongitude());
+    }
+  }
+
+  public record AccommodationAnchor(Double latitude, Double longitude) {
   }
 }

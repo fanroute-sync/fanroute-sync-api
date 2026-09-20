@@ -1,0 +1,18 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "baselineCommit": "6186bd1",
+  "seed": 97,
+  "repeats": 3,
+  "scenarios": 20,
+  "plannedRequests": 180,
+  "startedAt": "2026-09-19T18:00:28.151394+00:00",
+  "timeoutSeconds": 30,
+  "concurrency": 1,
+  "delaySeconds": 5.0,
+  "finishedAt": "2026-09-19T18:19:40.920992+00:00",
+  "completedRequests": 180,
+  "requestImplementationCommit": "e541ae5",
+  "summaryToolCommit": "8793ab1",
+  "requestsSha256": "14e62caa657fd6bd40d3d20230c8c12a81b762770a496611397e7f0cc7306d8e",
+  "resultsSha256": "bff1a4893e807cdf523ac856f761d0718d7977e9a329b56de19b602036516d27"
+}
