@@ -1,6 +1,7 @@
 package com.fanroute.sync.domain.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -13,10 +14,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +41,11 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
@@ -105,6 +111,8 @@ class ChatWebSocketIntegrationTest {
   @jakarta.annotation.Resource PostRepository posts;
   @jakarta.annotation.Resource ChatRoomRepository rooms;
   @jakarta.annotation.Resource ChatRoomMemberRepository members;
+  @jakarta.annotation.Resource ChatService chatService;
+  @jakarta.annotation.Resource PlatformTransactionManager transactionManager;
   @jakarta.annotation.Resource(name = "simpleBrokerMessageHandler")
   SimpleBrokerMessageHandler broker;
 
@@ -113,6 +121,8 @@ class ChatWebSocketIntegrationTest {
   private WebSocketStompClient stompClient;
   private StompSession ownerSession;
   private StompSession memberSession;
+  private SubscriptionRegistry originalSubscriptions;
+  private final BlockingQueue<StompHeaders> sessionErrors = new LinkedBlockingQueue<>();
 
   private User owner;
   private User member;
@@ -120,8 +130,9 @@ class ChatWebSocketIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    owner = users.saveAndFlush(User.create("owner", AuthProvider.GOOGLE, "owner-google"));
-    member = users.saveAndFlush(User.create("member", AuthProvider.GOOGLE, "member-google"));
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    owner = users.saveAndFlush(User.create("owner-" + suffix, AuthProvider.GOOGLE, "owner-" + suffix));
+    member = users.saveAndFlush(User.create("member-" + suffix, AuthProvider.GOOGLE, "member-" + suffix));
     Post post = posts.saveAndFlush(Post.create(owner, PostType.COMPANION, "부산 공연 동행", null,
         List.of(), null, null, LocalDate.now(), 2, "부산"));
     ChatRoom room = rooms.saveAndFlush(ChatRoom.createCompanion(post, owner));
@@ -142,6 +153,7 @@ class ChatWebSocketIntegrationTest {
             "새 메시지", roomId, Instant.now(), null));
 
     stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+    originalSubscriptions = broker.getSubscriptionRegistry();
   }
 
   @AfterEach
@@ -149,6 +161,7 @@ class ChatWebSocketIntegrationTest {
     if (ownerSession != null && ownerSession.isConnected()) ownerSession.disconnect();
     if (memberSession != null && memberSession.isConnected()) memberSession.disconnect();
     if (stompClient != null) stompClient.stop();
+    broker.setSubscriptionRegistry(originalSubscriptions);
   }
 
   @Test
@@ -219,18 +232,157 @@ class ChatWebSocketIntegrationTest {
     assertReadReceipt(take(memberReads), lastMessageId);
     assertThat(members.findByChatRoomIdAndUserId(roomId, owner.getId()).orElseThrow()
         .getLastReadMessageId()).isEqualTo(lastMessageId);
+    assertThat(listedRoom().path("unreadCount").asLong()).isZero();
+
+    ownerSession.disconnect();
+    send(memberSession, "연결이 끊긴 동안의 메시지");
+    JsonNode offlineMessage = take(memberMessages);
+    ownerSession = connect(OWNER_TOKEN);
+    BlockingQueue<JsonNode> reconnectedMessages = new LinkedBlockingQueue<>();
+    SubscriptionBarrier reconnected = new SubscriptionBarrier(broker.getSubscriptionRegistry(), 1);
+    broker.setSubscriptionRegistry(reconnected);
+    subscribe(ownerSession, "/user/queue/chat.rooms/" + roomId, reconnectedMessages);
+    assertThat(reconnected.await()).isTrue();
+    JsonNode recoveredPage = getHistory("?size=1").path("data");
+    assertThat(recoveredPage.path("messages").get(0).path("id").asLong())
+        .isEqualTo(offlineMessage.path("id").asLong());
+    assertThat(recoveredPage.path("hasNext").asBoolean()).isTrue();
+    long cursor = recoveredPage.path("nextBeforeMessageId").asLong();
+    JsonNode previousPage = getHistory("?size=2&beforeMessageId=" + cursor).path("data");
+    assertThat(previousPage.path("messages")).hasSize(2);
+    assertThat(previousPage.path("messages").get(0).path("id").asLong())
+        .isEqualTo(firstForOwner.path("id").asLong());
+    assertThat(previousPage.path("messages").get(1).path("id").asLong()).isEqualTo(lastMessageId);
+    assertThat(previousPage.path("hasNext").asBoolean()).isFalse();
+    send(memberSession, "재접속 후 실시간 메시지");
+    assertThat(take(reconnectedMessages).path("content").asText())
+        .isEqualTo("재접속 후 실시간 메시지");
+    assertThat(listedRoom().path("unreadCount").asLong()).isEqualTo(2L);
+  }
+
+  @Test
+  void rejectsMissingAndInvalidConnectTokens() {
+    assertThatThrownBy(() -> connect(null)).isInstanceOf(java.util.concurrent.ExecutionException.class);
+    when(jwtDecoder.decode("invalid-token")).thenThrow(new BadJwtException("Invalid token"));
+    assertThatThrownBy(() -> connect("invalid-token"))
+        .isInstanceOf(java.util.concurrent.ExecutionException.class);
+  }
+
+  @Test
+  void concurrentReadRequestsMustNotMoveCursorBackwards() throws Exception {
+    long earlierId = chatService.send(member, roomId, "이전 메시지").id();
+    long latestId = chatService.send(member, roomId, "최신 메시지").id();
+    CountDownLatch earlierRequestLoaded = new CountDownLatch(1);
+    CountDownLatch latestRequestCommitted = new CountDownLatch(1);
+    try (var executor = Executors.newSingleThreadExecutor()) {
+      var earlierRequest = executor.submit(() -> new TransactionTemplate(transactionManager)
+          .executeWithoutResult(status -> {
+            members.findByChatRoomIdAndUserId(roomId, owner.getId()).orElseThrow();
+            earlierRequestLoaded.countDown();
+            try {
+              assertThat(latestRequestCommitted.await(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS))
+                  .isTrue();
+            } catch (InterruptedException exception) {
+              Thread.currentThread().interrupt();
+              throw new IllegalStateException(exception);
+            }
+            chatService.markRead(owner, roomId, earlierId);
+          }));
+      try {
+        assertThat(earlierRequestLoaded.await(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        chatService.markRead(owner, roomId, latestId);
+      } finally {
+        latestRequestCommitted.countDown();
+      }
+      earlierRequest.get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+    }
+    assertThat(members.findByChatRoomIdAndUserId(roomId, owner.getId()).orElseThrow()
+        .getLastReadMessageId()).isEqualTo(latestId);
+  }
+
+  @Test
+  void notificationFailureMustNotPreventPersistedMessageDelivery() throws Exception {
+    ownerSession = connect(OWNER_TOKEN);
+    memberSession = connect(MEMBER_TOKEN);
+    BlockingQueue<JsonNode> receivedMessages = new LinkedBlockingQueue<>();
+    SubscriptionBarrier subscribed = new SubscriptionBarrier(broker.getSubscriptionRegistry(), 1);
+    broker.setSubscriptionRegistry(subscribed);
+    subscribe(memberSession, "/user/queue/chat.rooms/" + roomId, receivedMessages);
+    assertThat(subscribed.await()).isTrue();
+    CountDownLatch notificationFailed = new CountDownLatch(1);
+    when(notificationService.notifyChatMessage(any(), any(), any(), any())).thenAnswer(invocation -> {
+      notificationFailed.countDown();
+      throw new org.springframework.dao.DataAccessResourceFailureException("알림 저장 실패 재현");
+    });
+
+    send(ownerSession, "알림 오류와 무관하게 전달해야 하는 메시지");
+
+    assertThat(notificationFailed.await(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+    assertThat(getHistory("").path("data").path("messages")).hasSize(1);
+    assertThat(take(receivedMessages).path("content").asText())
+        .isEqualTo("알림 오류와 무관하게 전달해야 하는 메시지");
+  }
+
+  @Test
+  void rejectsWebSocketHandshakeFromUnlistedOrigin() {
+    assertThatThrownBy(() -> connect(OWNER_TOKEN, "https://untrusted.example"))
+        .isInstanceOf(java.util.concurrent.ExecutionException.class);
+  }
+
+  @Test
+  void nonMemberCannotReadHistoryOrSubscribe() throws Exception {
+    members.delete(members.findByChatRoomIdAndUserId(roomId, member.getId()).orElseThrow());
+    HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder(historyUri())
+        .header("Authorization", "Bearer " + MEMBER_TOKEN).GET().build(),
+        HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(403);
+    memberSession = connect(MEMBER_TOKEN);
+    subscribe(memberSession, "/user/queue/chat.rooms/" + roomId, new LinkedBlockingQueue<>());
+    assertThat(sessionErrors.poll(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isNotNull();
+  }
+
+  @Test
+  void nonMemberCannotSend() throws Exception {
+    members.delete(members.findByChatRoomIdAndUserId(roomId, member.getId()).orElseThrow());
+    memberSession = connect(MEMBER_TOKEN);
+    send(memberSession, "참여하지 않은 방의 메시지");
+    assertThat(sessionErrors.poll(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isNotNull();
+    assertThat(getHistory("").path("data").path("messages")).isEmpty();
+  }
+
+  private JsonNode getHistory(String query) throws Exception {
+    HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder(
+        URI.create(historyUri().toString() + query))
+        .header("Authorization", "Bearer " + OWNER_TOKEN).GET().build(),
+        HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(200);
+    return objectMapper.readTree(response.body());
   }
 
   private StompSession connect(String token) throws Exception {
+    return connect(token, "http://localhost");
+  }
+
+  private StompSession connect(String token, String origin) throws Exception {
     StompHeaders connectHeaders = new StompHeaders();
-    connectHeaders.add("Authorization", "Bearer " + token);
+    if (token != null) connectHeaders.add("Authorization", "Bearer " + token);
     WebSocketHttpHeaders handshakeHeaders = new WebSocketHttpHeaders();
-    handshakeHeaders.setOrigin("http://localhost");
+    handshakeHeaders.setOrigin(origin);
     return stompClient.connectAsync(
         URI.create("ws://localhost:" + port + "/ws/chat"),
         handshakeHeaders,
         connectHeaders,
-        new StompSessionHandlerAdapter() {})
+        new StompSessionHandlerAdapter() {
+          @Override
+          public Type getPayloadType(StompHeaders headers) {
+            return byte[].class;
+          }
+
+          @Override
+          public void handleFrame(StompHeaders headers, Object payload) {
+            sessionErrors.add(headers);
+          }
+        })
         .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
   }
 
