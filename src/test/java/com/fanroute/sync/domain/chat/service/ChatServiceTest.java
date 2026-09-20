@@ -13,11 +13,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fanroute.sync.domain.chat.entity.ChatRoom;
 import com.fanroute.sync.domain.chat.entity.ChatRoomMember;
 import com.fanroute.sync.domain.chat.entity.ChatMemberRole;
+import com.fanroute.sync.domain.chat.entity.ChatMessage;
 import com.fanroute.sync.domain.chat.dto.ChatDto;
 import com.fanroute.sync.domain.chat.exception.ChatErrorCode;
 import com.fanroute.sync.domain.chat.repository.ChatMessageRepository;
@@ -80,10 +82,81 @@ class ChatServiceTest {
     assertThat(response.lastReadMessageId()).isEqualTo(50L);
   }
 
+  @Test
+  void messagesReturnsAscendingFirstPageAndCursorForNextPage() {
+    User user = user(1L);
+    ChatRoom room = room(user, 20L);
+    when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member(room, user)));
+    when(messages.findByChatRoomIdOrderByIdDesc(20L, PageRequest.of(0, 3)))
+        .thenReturn(List.of(message(room, user, 3L), message(room, user, 2L), message(room, user, 1L)));
+
+    ChatDto.MessagePageResponse response = service().messages(user, 20L, null, 2);
+
+    assertThat(response.messages()).extracting(ChatDto.MessageResponse::id).containsExactly(2L, 3L);
+    assertThat(response.hasNext()).isTrue();
+    assertThat(response.nextBeforeMessageId()).isEqualTo(2L);
+  }
+
+  @Test
+  void messagesReturnsCursorPageInAscendingOrderWithoutNextCursor() {
+    User user = user(1L);
+    ChatRoom room = room(user, 20L);
+    when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member(room, user)));
+    when(messages.findByChatRoomIdAndIdLessThanOrderByIdDesc(20L, 2L, PageRequest.of(0, 3)))
+        .thenReturn(List.of(message(room, user, 1L)));
+
+    ChatDto.MessagePageResponse response = service().messages(user, 20L, 2L, 2);
+
+    assertThat(response.messages()).extracting(ChatDto.MessageResponse::id).containsExactly(1L);
+    assertThat(response.hasNext()).isFalse();
+    assertThat(response.nextBeforeMessageId()).isNull();
+  }
+
+  @Test
+  void messagesHandlesEmptyAndSingleMessagePages() {
+    User user = user(1L);
+    ChatRoom room = room(user, 20L);
+    when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member(room, user)));
+    when(messages.findByChatRoomIdOrderByIdDesc(20L, PageRequest.of(0, 3))).thenReturn(List.of());
+
+    ChatDto.MessagePageResponse empty = service().messages(user, 20L, null, 2);
+
+    assertThat(empty.messages()).isEmpty();
+    assertThat(empty.hasNext()).isFalse();
+    assertThat(empty.nextBeforeMessageId()).isNull();
+
+    when(messages.findByChatRoomIdOrderByIdDesc(20L, PageRequest.of(0, 2)))
+        .thenReturn(List.of(message(room, user, 1L)));
+
+    ChatDto.MessagePageResponse single = service().messages(user, 20L, null, 1);
+
+    assertThat(single.messages()).extracting(ChatDto.MessageResponse::id).containsExactly(1L);
+    assertThat(single.hasNext()).isFalse();
+    assertThat(single.nextBeforeMessageId()).isNull();
+  }
+
   private User user(Long id) {
     User user = UserFixture.activeUser();
     ReflectionTestUtils.setField(user, "id", id);
     return user;
+  }
+
+  private ChatRoom room(User owner, Long id) {
+    Post post = Post.create(owner, PostType.COMPANION, "동행", null, List.of(), null, null,
+        java.time.LocalDate.now(), 2, null);
+    ChatRoom room = ChatRoom.createCompanion(post, owner);
+    ReflectionTestUtils.setField(room, "id", id);
+    return room;
+  }
+
+  private ChatRoomMember member(ChatRoom room, User user) {
+    return ChatRoomMember.create(room, user, ChatMemberRole.OWNER);
+  }
+
+  private ChatMessage message(ChatRoom room, User sender, Long id) {
+    ChatMessage message = ChatMessage.createText(room, sender, "메시지 " + id);
+    ReflectionTestUtils.setField(message, "id", id);
+    return message;
   }
 
   private ChatService service() {

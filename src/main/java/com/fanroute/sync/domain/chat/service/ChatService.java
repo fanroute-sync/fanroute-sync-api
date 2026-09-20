@@ -1,7 +1,6 @@
 package com.fanroute.sync.domain.chat.service;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -58,8 +57,7 @@ public class ChatService {
     boolean hasNext = page.size() > size;
     List<ChatMessage> result = page.subList(0, Math.min(size, page.size()));
     Long next = hasNext ? result.getLast().getId() : null;
-    List<ChatDto.MessageResponse> response = result.stream().map(this::toMessage).toList();
-    Collections.reverse(response);
+    List<ChatDto.MessageResponse> response = result.stream().map(this::toMessage).toList().reversed();
     return new ChatDto.MessagePageResponse(response, hasNext, next);
   }
 
