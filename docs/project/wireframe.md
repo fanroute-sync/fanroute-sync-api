@@ -107,8 +107,11 @@ OAuth만 지원한다.
 
 ## 동행 채팅 API
 
-모든 경로와 STOMP 연결은 JWT 인증이 필요하다. 동행 게시글 생성 시 채팅방이 자동 생성되며,
-방장은 해당 게시글의 최상위 댓글 작성자를 채택할 수 있다.
+REST 경로와 STOMP 연결은 JWT 인증이 필요하다. 브라우저의 WebSocket 업그레이드 요청
+(`GET /ws/chat`)만 HTTP 인증 없이 허용하며, STOMP `CONNECT`의
+`Authorization: Bearer <accessToken>` 헤더로 인증한다. 토큰 없는 연결과 비참여자의
+메시지 전송·구독은 거부한다. SockJS를 사용하지 않는 기본 WebSocket 연결이다.
+동행 게시글 생성 시 채팅방이 자동 생성되며, 방장은 해당 게시글의 최상위 댓글 작성자를 채택할 수 있다.
 
 | 동작 | 메서드와 경로 | 주요 입력 |
 | --- | --- | --- |
@@ -119,5 +122,10 @@ OAuth만 지원한다.
 | 실시간 전송 | STOMP `/app/chat.rooms/{roomId}/messages` | `content` |
 | 실시간 수신 | STOMP `/user/queue/chat.rooms/{roomId}` | - |
 | 실시간 읽음 상태 수신 | STOMP `/user/queue/chat.rooms/{roomId}/reads` | `userId`, `lastReadMessageId` |
+
+프론트는 STOMP 연결 성공 후 메시지·읽음 경로를 구독하고, 메시지는 `{"content":"내용"}`으로
+전송한다. 메시지 이력의 각 페이지는 오래된 순서이며, 이전 페이지는 `nextBeforeMessageId`를
+`beforeMessageId`로 전달해 조회한 뒤 앞에 붙인다. 연결 복구 시 이력을 다시 조회하고 메시지 ID로
+중복을 제거한다. 읽음 처리는 REST로 저장하고 실시간 읽음 이벤트를 화면에 반영한다.
 
 목록/상세 응답의 `content`는 참고 루트에서 게시 당시 일정의 복사용 텍스트다. 동행 모집 응답의 `currentMembers`는 활성 채팅방 참여자 수다. 게시글 목록·상세와 댓글 응답의 `likedByMe`는 현재 JWT 사용자 기준 좋아요 여부로, 새로고침 후 버튼 상태 복원에 사용한다.
