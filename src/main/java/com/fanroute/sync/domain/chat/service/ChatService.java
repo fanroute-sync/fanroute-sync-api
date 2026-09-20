@@ -1,7 +1,9 @@
 package com.fanroute.sync.domain.chat.service;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -43,8 +45,20 @@ public class ChatService {
   }
 
   public List<ChatDto.RoomResponse> list(User user) {
-    return members.findByUserIdAndLeftAtIsNullOrderByChatRoomLastMessageAtDesc(user.getId()).stream()
-        .map(member -> toRoom(member, user.getId())).toList();
+    List<ChatRoomMember> joinedRooms =
+        members.findByUserIdAndLeftAtIsNullOrderByChatRoomLastMessageAtDesc(user.getId());
+    List<Long> lastMessageIds = joinedRooms.stream()
+        .map(member -> member.getChatRoom().getLastMessageId())
+        .filter(id -> id != null).toList();
+    Map<Long, String> lastMessages = new HashMap<>();
+    if (!lastMessageIds.isEmpty()) {
+      for (ChatMessage message : messages.findAllById(lastMessageIds)) {
+        lastMessages.put(message.getId(), message.getContent());
+      }
+    }
+    return joinedRooms.stream()
+        .map(member -> toRoom(member, lastMessages.get(member.getChatRoom().getLastMessageId())))
+        .toList();
   }
 
   public ChatDto.MessagePageResponse messages(User user, Long roomId, Long beforeMessageId, int size) {
@@ -141,13 +155,13 @@ public class ChatService {
         .orElseThrow(() -> new BusinessException(ChatErrorCode.FORBIDDEN));
   }
 
-  private ChatDto.RoomResponse toRoom(ChatRoomMember member, Long userId) {
+  private ChatDto.RoomResponse toRoom(ChatRoomMember member, String lastMessage) {
     ChatRoom room = member.getChatRoom();
     Long lastRead = member.getLastReadMessageId();
     long unread = lastRead == null ? messages.countByChatRoomIdAndIdGreaterThan(room.getId(), 0L)
         : messages.countByChatRoomIdAndIdGreaterThan(room.getId(), lastRead);
     return new ChatDto.RoomResponse(room.getId(), room.getCompanionPost().getId(),
-        room.getCompanionPost().getTitle(), room.getLastMessageAt(), null, unread);
+        room.getCompanionPost().getTitle(), room.getLastMessageAt(), lastMessage, unread);
   }
 
   private ChatDto.MessageResponse toMessage(ChatMessage message) {

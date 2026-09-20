@@ -156,6 +156,9 @@ class ChatWebSocketIntegrationTest {
     HttpResponse<String> unauthorized = httpClient.send(
         HttpRequest.newBuilder(historyUri()).GET().build(), HttpResponse.BodyHandlers.ofString());
     assertThat(unauthorized.statusCode()).isEqualTo(401);
+    JsonNode emptyRoom = listedRoom();
+    assertThat(emptyRoom.path("lastMessage").isNull()).isTrue();
+    assertThat(emptyRoom.path("lastMessageAt").isNull()).isTrue();
     ownerSession = connect(OWNER_TOKEN);
     memberSession = connect(MEMBER_TOKEN);
 
@@ -178,6 +181,7 @@ class ChatWebSocketIntegrationTest {
     assertThat(firstForOwner.path("senderId").asLong()).isEqualTo(owner.getId());
     assertThat(firstForMember.path("id").asLong()).isEqualTo(firstForOwner.path("id").asLong());
     assertThat(firstForMember.path("senderId").asLong()).isEqualTo(owner.getId());
+    assertThat(listedRoom().path("lastMessage").asText()).isEqualTo("첫 번째 메시지");
 
     send(memberSession, "두 번째 메시지");
     JsonNode secondForOwner = take(ownerMessages);
@@ -186,6 +190,11 @@ class ChatWebSocketIntegrationTest {
     assertThat(secondForOwner.path("senderId").asLong()).isEqualTo(member.getId());
     assertThat(secondForMember.path("id").asLong()).isEqualTo(secondForOwner.path("id").asLong());
     assertThat(secondForMember.path("senderId").asLong()).isEqualTo(member.getId());
+    JsonNode updatedRoom = listedRoom();
+    assertThat(updatedRoom.path("lastMessage").asText()).isEqualTo("두 번째 메시지");
+    assertThat(updatedRoom.path("lastMessageAt").asText())
+        .isEqualTo(secondForOwner.path("createdAt").asText());
+    assertThat(updatedRoom.path("unreadCount").asLong()).isEqualTo(1L);
 
     HttpResponse<String> history = httpClient.send(HttpRequest.newBuilder(historyUri())
         .header("Authorization", "Bearer " + OWNER_TOKEN)
@@ -250,6 +259,18 @@ class ChatWebSocketIntegrationTest {
 
   private URI historyUri() {
     return URI.create("http://localhost:" + port + "/api/v1/chat/rooms/" + roomId + "/messages");
+  }
+
+  private JsonNode listedRoom() throws Exception {
+    HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder(
+        URI.create("http://localhost:" + port + "/api/v1/chat/rooms"))
+        .header("Authorization", "Bearer " + OWNER_TOKEN)
+        .GET().build(), HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(200);
+    JsonNode listedRooms = objectMapper.readTree(response.body()).path("data");
+    assertThat(listedRooms).hasSize(1);
+    assertThat(listedRooms.get(0).path("roomId").asLong()).isEqualTo(roomId);
+    return listedRooms.get(0);
   }
 
   private Jwt jwt(String token, Long userId) {

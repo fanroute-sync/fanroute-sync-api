@@ -3,6 +3,7 @@ package com.fanroute.sync.domain.chat.dto;
 import java.time.Instant;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,6 +15,7 @@ public final class ChatDto {
   public record MarkReadRequest(@NotNull Long lastReadMessageId) {}
   public record SendMessageRequest(@NotBlank @Size(max = 1000) String content) {}
   public record RoomResponse(Long roomId, Long companionPostId, String title, Instant lastMessageAt,
+      @Schema(description = "마지막 메시지 내용. 아직 메시지가 없는 방은 null")
       String lastMessage, long unreadCount) {}
   public record MessageResponse(Long id, Long roomId, Long senderId, String senderNickname,
       String content, Instant createdAt, long readCount) {}
