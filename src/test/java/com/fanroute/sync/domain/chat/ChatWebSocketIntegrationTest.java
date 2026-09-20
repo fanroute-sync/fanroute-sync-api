@@ -13,6 +13,8 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -20,10 +22,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -56,6 +61,7 @@ import com.fanroute.sync.domain.chat.config.ChatStompInterceptor;
 import com.fanroute.sync.domain.chat.config.ChatWebSocketConfig;
 import com.fanroute.sync.domain.chat.controller.ChatController;
 import com.fanroute.sync.domain.chat.controller.ChatMessageController;
+import com.fanroute.sync.domain.chat.dto.ChatDto;
 import com.fanroute.sync.domain.chat.entity.ChatMemberRole;
 import com.fanroute.sync.domain.chat.entity.ChatRoom;
 import com.fanroute.sync.domain.chat.entity.ChatRoomMember;
@@ -268,15 +274,17 @@ class ChatWebSocketIntegrationTest {
         .isInstanceOf(java.util.concurrent.ExecutionException.class);
   }
 
-  @Test
-  void concurrentReadRequestsMustNotMoveCursorBackwards() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void concurrentReadRequestsMustNotMoveCursorBackwards(boolean advanceBySend) throws Exception {
     long earlierId = chatService.send(member, roomId, "이전 메시지").id();
     long latestId = chatService.send(member, roomId, "최신 메시지").id();
+    long expectedCursor = latestId;
     CountDownLatch earlierRequestLoaded = new CountDownLatch(1);
     CountDownLatch latestRequestCommitted = new CountDownLatch(1);
     try (var executor = Executors.newSingleThreadExecutor()) {
       var earlierRequest = executor.submit(() -> new TransactionTemplate(transactionManager)
-          .executeWithoutResult(status -> {
+          .execute(status -> {
             members.findByChatRoomIdAndUserId(roomId, owner.getId()).orElseThrow();
             earlierRequestLoaded.countDown();
             try {
@@ -286,18 +294,55 @@ class ChatWebSocketIntegrationTest {
               Thread.currentThread().interrupt();
               throw new IllegalStateException(exception);
             }
-            chatService.markRead(owner, roomId, earlierId);
+            return chatService.markRead(owner, roomId, earlierId);
           }));
       try {
         assertThat(earlierRequestLoaded.await(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
-        chatService.markRead(owner, roomId, latestId);
+        if (advanceBySend) {
+          expectedCursor = chatService.send(owner, roomId, "읽음 요청 중 보낸 메시지").id();
+        } else {
+          chatService.markRead(owner, roomId, latestId);
+        }
       } finally {
         latestRequestCommitted.countDown();
       }
-      earlierRequest.get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+      assertThat(earlierRequest.get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS).lastReadMessageId())
+          .isEqualTo(expectedCursor);
     }
     assertThat(members.findByChatRoomIdAndUserId(roomId, owner.getId()).orElseThrow()
-        .getLastReadMessageId()).isEqualTo(latestId);
+        .getLastReadMessageId()).isEqualTo(expectedCursor);
+    assertThat(listedRoom().path("unreadCount").asLong()).isZero();
+  }
+
+  @Test
+  void concurrentSendsKeepLatestMessageAndReadCursors() throws Exception {
+    CountDownLatch start = new CountDownLatch(1);
+    var results = new ArrayList<ChatDto.MessageResponse>();
+    try (var executor = Executors.newFixedThreadPool(4)) {
+      var futures = new ArrayList<Future<ChatDto.MessageResponse>>();
+      for (int index = 0; index < 16; index++) {
+        User sender = index % 2 == 0 ? owner : member;
+        String content = "동시 메시지 " + index;
+        futures.add(executor.submit(() -> {
+          assertThat(start.await(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+          return chatService.send(sender, roomId, content);
+        }));
+      }
+      start.countDown();
+      for (var future : futures) {
+        results.add(future.get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS));
+      }
+    }
+    var latest = results.stream().max(Comparator.comparing(ChatDto.MessageResponse::id)).orElseThrow();
+    assertThat(getHistory("").path("data").path("messages")).hasSize(16);
+    assertThat(rooms.findById(roomId).orElseThrow().getLastMessageId()).isEqualTo(latest.id());
+    assertThat(listedRoom().path("lastMessage").asText()).isEqualTo(latest.content());
+    for (User sender : List.of(owner, member)) {
+      long lastSent = results.stream().filter(message -> message.senderId().equals(sender.getId()))
+          .mapToLong(ChatDto.MessageResponse::id).max().orElseThrow();
+      assertThat(members.findByChatRoomIdAndUserId(roomId, sender.getId()).orElseThrow()
+          .getLastReadMessageId()).isEqualTo(lastSent);
+    }
   }
 
   @Test

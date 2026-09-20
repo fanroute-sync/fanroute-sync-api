@@ -55,7 +55,8 @@ public interface ChatApi {
       @Valid @RequestBody ChatDto.AcceptMemberRequest request);
 
   @PatchMapping("/{roomId}/read")
-  @Operation(summary = "채팅 메시지 읽음 처리", description = "활성 참여자에게 읽음 커서를 실시간 전송")
+  @Operation(summary = "채팅 메시지 읽음 처리",
+      description = "읽음 커서는 더 큰 메시지 ID로만 갱신하며 활성 참여자에게 실시간 전송")
   @ApiResponses(@io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "200", description = "읽음 처리 성공", useReturnTypeSchema = true))
   @ApiErrorCodeExamples(type = ChatErrorCode.class, names = {"FORBIDDEN", "INVALID_MESSAGE"})

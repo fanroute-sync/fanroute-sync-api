@@ -100,7 +100,7 @@ public class ChatService {
 
   @Transactional
   public ChatDto.MessageResponse send(User user, Long roomId, String content) {
-    ChatRoom room = rooms.findById(roomId)
+    ChatRoom room = rooms.findByIdForUpdate(roomId)
         .orElseThrow(() -> new BusinessException(ChatErrorCode.ROOM_NOT_FOUND));
     ChatRoomMember senderMember = requireActiveMemberEntity(roomId, user.getId());
     String normalized = content == null ? "" : content.trim();
@@ -108,8 +108,8 @@ public class ChatService {
       throw new BusinessException(ChatErrorCode.INVALID_MESSAGE);
     }
     ChatMessage message = messages.save(ChatMessage.createText(room, user, normalized));
-    senderMember.markRead(message.getId(), message.getCreatedAt());
     room.updateLastMessage(message.getId(), message.getCreatedAt());
+    members.advanceReadCursor(senderMember.getId(), message.getId(), message.getCreatedAt());
     return toMessage(message);
   }
 
@@ -119,8 +119,9 @@ public class ChatService {
     if (!messages.existsByIdAndChatRoomId(messageId, roomId)) {
       throw new BusinessException(ChatErrorCode.INVALID_MESSAGE);
     }
-    member.markRead(messageId, Instant.now());
-    return new ChatDto.ReadReceiptResponse(roomId, user.getId(), member.getLastReadMessageId());
+    members.advanceReadCursor(member.getId(), messageId, Instant.now());
+    return new ChatDto.ReadReceiptResponse(roomId, user.getId(),
+        members.findLastReadMessageId(member.getId()));
   }
 
   public void requireActiveMember(Long roomId, Long userId) {

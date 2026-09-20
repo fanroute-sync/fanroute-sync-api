@@ -144,7 +144,7 @@ class ChatServiceAuditTest {
     Post post = post(owner, 10L, 2);
     ChatRoom room = room(post, owner, 20L);
     ChatRoomMember member = ChatRoomMember.create(room, owner, ChatMemberRole.OWNER);
-    when(rooms.findById(20L)).thenReturn(Optional.of(room));
+    when(rooms.findByIdForUpdate(20L)).thenReturn(Optional.of(room));
     when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member));
     when(messages.save(any(ChatMessage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -164,7 +164,7 @@ class ChatServiceAuditTest {
     Post post = post(owner, 10L, 2);
     ChatRoom room = room(post, owner, 20L);
     User outsider = user(2L);
-    when(rooms.findById(20L)).thenReturn(Optional.of(room));
+    when(rooms.findByIdForUpdate(20L)).thenReturn(Optional.of(room));
     when(members.findByChatRoomIdAndUserId(20L, 2L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> service().send(outsider, 20L, "hello"))
@@ -173,10 +173,11 @@ class ChatServiceAuditTest {
   }
 
   @Test
-  void markReadRejectsMessageFromAnotherRoomAndKeepsCursorMonotonic() {
+  void markReadRejectsMessageFromAnotherRoomAndReturnsPersistedCursor() {
     User owner = user(1L);
     ChatRoom room = room(post(owner, 10L, 2), owner, 20L);
     ChatRoomMember member = ChatRoomMember.create(room, owner, ChatMemberRole.OWNER);
+    ReflectionTestUtils.setField(member, "id", 30L);
     when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member));
     when(messages.existsByIdAndChatRoomId(99L, 20L)).thenReturn(false);
     assertThatThrownBy(() -> service().markRead(owner, 20L, 99L))
@@ -185,9 +186,9 @@ class ChatServiceAuditTest {
 
     when(messages.existsByIdAndChatRoomId(10L, 20L)).thenReturn(true);
     when(messages.existsByIdAndChatRoomId(5L, 20L)).thenReturn(true);
+    when(members.findLastReadMessageId(30L)).thenReturn(10L);
     service().markRead(owner, 20L, 10L);
-    service().markRead(owner, 20L, 5L);
-    assertThat(member.getLastReadMessageId()).isEqualTo(10L);
+    assertThat(service().markRead(owner, 20L, 5L).lastReadMessageId()).isEqualTo(10L);
   }
 
   @Test

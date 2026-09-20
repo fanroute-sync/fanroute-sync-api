@@ -74,8 +74,10 @@ class ChatServiceTest {
     ChatRoom room = ChatRoom.createCompanion(post, user);
     ReflectionTestUtils.setField(room, "id", 20L);
     ChatRoomMember member = ChatRoomMember.create(room, user, ChatMemberRole.OWNER);
+    ReflectionTestUtils.setField(member, "id", 30L);
     when(members.findByChatRoomIdAndUserId(20L, 1L)).thenReturn(Optional.of(member));
     when(messages.existsByIdAndChatRoomId(50L, 20L)).thenReturn(true);
+    when(members.findLastReadMessageId(30L)).thenReturn(50L);
 
     ChatDto.ReadReceiptResponse response = service().markRead(user, 20L, 50L);
 
