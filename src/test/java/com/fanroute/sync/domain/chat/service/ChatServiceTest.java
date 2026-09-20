@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -83,6 +85,52 @@ class ChatServiceTest {
   }
 
   @Test
+  void listSkipsMessageLookupWhenThereAreNoActiveRooms() {
+    User user = user(1L);
+    when(members.findByUserIdAndLeftAtIsNullOrderByChatRoomLastMessageAtDesc(1L))
+        .thenReturn(List.of());
+
+    assertThat(service().list(user)).isEmpty();
+
+    verifyNoInteractions(messages);
+  }
+
+  @Test
+  void listMatchesLastMessageContentByRoomAndPreservesUnreadAndTime() {
+    User user = user(1L);
+    ChatRoom firstRoom = room(user, 20L);
+    ChatRoom secondRoom = room(user, 21L);
+    ChatRoom emptyRoom = room(user, 22L);
+    Instant firstSentAt = Instant.parse("2026-09-21T01:02:03Z");
+    Instant secondSentAt = Instant.parse("2026-09-21T02:03:04Z");
+    firstRoom.updateLastMessage(101L, firstSentAt);
+    secondRoom.updateLastMessage(202L, secondSentAt);
+    ChatMessage firstMessage = message(firstRoom, user, 101L, "첫 번째 메시지");
+    ChatMessage secondMessage = message(secondRoom, user, 202L, "두 번째 메시지");
+
+    when(members.findByUserIdAndLeftAtIsNullOrderByChatRoomLastMessageAtDesc(1L))
+        .thenReturn(List.of(member(firstRoom, user), member(secondRoom, user), member(emptyRoom, user)));
+    when(messages.countByChatRoomIdAndIdGreaterThan(20L, 0L)).thenReturn(3L);
+    when(messages.countByChatRoomIdAndIdGreaterThan(21L, 0L)).thenReturn(1L);
+    when(messages.countByChatRoomIdAndIdGreaterThan(22L, 0L)).thenReturn(0L);
+    when(messages.findAllById(List.of(101L, 202L))).thenReturn(List.of(secondMessage, firstMessage));
+
+    List<ChatDto.RoomResponse> result = service().list(user);
+
+    assertThat(result).extracting(ChatDto.RoomResponse::roomId)
+        .containsExactly(20L, 21L, 22L);
+    assertThat(result.get(0).lastMessage()).isEqualTo("첫 번째 메시지");
+    assertThat(result.get(1).lastMessage()).isEqualTo("두 번째 메시지");
+    assertThat(result.get(2).lastMessage()).isNull();
+    assertThat(result).extracting(ChatDto.RoomResponse::lastMessageAt)
+        .containsExactly(firstSentAt, secondSentAt, null);
+    assertThat(result).extracting(ChatDto.RoomResponse::unreadCount)
+        .containsExactly(3L, 1L, 0L);
+
+    verify(messages).findAllById(List.of(101L, 202L));
+  }
+
+  @Test
   void messagesReturnsAscendingFirstPageAndCursorForNextPage() {
     User user = user(1L);
     ChatRoom room = room(user, 20L);
@@ -154,7 +202,11 @@ class ChatServiceTest {
   }
 
   private ChatMessage message(ChatRoom room, User sender, Long id) {
-    ChatMessage message = ChatMessage.createText(room, sender, "메시지 " + id);
+    return message(room, sender, id, "메시지 " + id);
+  }
+
+  private ChatMessage message(ChatRoom room, User sender, Long id, String content) {
+    ChatMessage message = ChatMessage.createText(room, sender, content);
     ReflectionTestUtils.setField(message, "id", id);
     return message;
   }

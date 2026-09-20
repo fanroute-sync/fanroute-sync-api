@@ -123,6 +123,9 @@ REST 경로와 STOMP 연결은 JWT 인증이 필요하다. 브라우저의 WebSo
 | 실시간 수신 | STOMP `/user/queue/chat.rooms/{roomId}` | - |
 | 실시간 읽음 상태 수신 | STOMP `/user/queue/chat.rooms/{roomId}/reads` | `userId`, `lastReadMessageId` |
 
+채팅방 목록의 `lastMessage`는 저장된 마지막 메시지 내용이며, 아직 메시지가 없는 방은
+`null`이다. 화면에서는 이 값으로 마지막 메시지 미리보기를 표시한다.
+
 프론트는 STOMP 연결 성공 후 메시지·읽음 경로를 구독하고, 메시지는 `{"content":"내용"}`으로
 전송한다. 메시지 이력의 각 페이지는 오래된 순서이며, 이전 페이지는 `nextBeforeMessageId`를
 `beforeMessageId`로 전달해 조회한 뒤 앞에 붙인다. 연결 복구 시 이력을 다시 조회하고 메시지 ID로
