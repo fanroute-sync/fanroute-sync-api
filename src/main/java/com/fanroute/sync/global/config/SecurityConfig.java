@@ -49,6 +49,8 @@ public class SecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(authorize -> authorize
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+            // 브라우저 업그레이드 이후 STOMP CONNECT에서 JWT를 검증한다.
+            .requestMatchers(HttpMethod.GET, "/ws/chat").permitAll()
             .requestMatchers("/api/v1/auth/google", "/api/v1/auth/token/refresh",
                 "/api/v1/auth/logout", "/error",
                 // local 프로파일에서만 컨트롤러가 등록됨(AuthDebugController) — 운영에는 이 경로 자체가 없음
